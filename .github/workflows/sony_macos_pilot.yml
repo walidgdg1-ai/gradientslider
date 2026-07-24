@@ -1,0 +1,33 @@
+name: Sony macOS pilot
+
+on:
+  push:
+    branches:
+      - automation/sony-harvest-compute
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    runs-on: macos-14
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch engine
+        run: |
+          mkdir -p tools
+          curl -fsSL 'https://raw.githubusercontent.com/walidgdg1-ai/evergreenleadminer/automation/sony-animation-reference-harvest-18/tools/harvest_sony18.py' -o tools/harvest_sony18.py
+          curl -fsSL 'https://raw.githubusercontent.com/walidgdg1-ai/evergreenleadminer/automation/sony-animation-reference-harvest-18/tools/harvest_sony18_fast.py' -o tools/harvest_sony18_fast.py
+      - run: brew install ffmpeg
+      - run: python3 -m pip install requests beautifulsoup4 pillow imagehash numpy opencv-python-headless yt-dlp
+      - run: PYTHONPATH=. python3 tools/harvest_sony18_fast.py --group 0 --output output
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sony-macos-pilot-film-0
+          path: output/
+          compression-level: 6
+          retention-days: 7
