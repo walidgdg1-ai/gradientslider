@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - automation/sony-harvest-compute
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
