@@ -20,7 +20,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Capture recent workflow runs and fast failure
+      - name: Capture recent workflow runs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -29,13 +29,12 @@ jobs:
             --limit 25 \
             --json databaseId,workflowName,status,conclusion,headSha,createdAt,updatedAt,url,event,displayTitle \
             > harvest-run-status.json
-          gh run view 30142311586 --repo "$GITHUB_REPOSITORY" --log-failed > fast-harvest-failure.log 2>&1 || true
-          tail -n 120 fast-harvest-failure.log
+          cat harvest-run-status.json
 
       - name: Commit status snapshot
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add harvest-run-status.json fast-harvest-failure.log
-          git commit -m "Record visual harvest status and failure log"
+          git add harvest-run-status.json
+          git commit -m "Refresh visual harvest workflow status"
           git push origin HEAD:main
