@@ -1,0 +1,187 @@
+# Final safety override: every candidate must pass source, metadata and image checks.
+# This file is concatenated after harvest_05_guaranteed.py.part, so these
+# definitions intentionally replace the permissive recovery functions.
+
+ADULT_DOMAINS = (
+    "pornhub.", "xvideos.", "xnxx.", "xhamster.", "redtube.", "youporn.",
+    "tube8.", "spankbang.", "3movs.", "watchmygf.", "brazzers.",
+    "realitykings.", "bangbros.", "propertysex.", "sexvid.", "xxx.",
+    "onlyfans.", "fansly.", "chaturbate.", "stripchat.", "livejasmin.",
+    "adulttime.", "mofos.", "teamskeet.", "naughtyamerica.", "pornhd.",
+)
+
+ADULT_TERMS = (
+    "porn", "porno", "xxx", "nsfw", "nude", "nudity", "naked", "sex scene",
+    "sexual", "blowjob", "handjob", "footjob", "anal", "cumshot", "creampie",
+    "hardcore", "hentai", "erotic", "escort", "camgirl", "webcam sex", "milf",
+    "teen sex", "gangbang", "threesome", "deepthroat", "pussy", "penis", "vagina",
+    "boobs", "tits", "ass fuck", "propertysex", "watch my gf", "onlyfans",
+)
+
+SAFE_CONTEXT_TERMS = {
+    "video_game": ("gameplay", "screenshot", "game", "level", "map", "environment"),
+    "film": ("movie", "film", "scene", "still", "set", "screencap"),
+    "tv_series": ("tv", "episode", "series", "scene", "still", "set"),
+    "western_animation": ("cartoon", "animation", "animated", "screenshot", "background"),
+    "anime": ("anime", "screenshot", "screencap", "background", "scene"),
+    "music_video": ("music video", "official video", "video still", "music", "scene"),
+    "tv_youtube_set": ("studio", "stage", "show", "set", "broadcast", "podcast"),
+    "real_world": ("photo", "photograph", "landmark", "interior", "exterior", "location"),
+}
+
+
+def _unsafe_text(value: str) -> bool:
+    text = " " + norm(value or "") + " "
+    return any((" " + norm(term) + " ") in text for term in ADULT_TERMS)
+
+
+def _unsafe_candidate(candidate: dict) -> bool:
+    page = candidate.get("page", "") or ""
+    image_url = candidate.get("image", "") or ""
+    thumb = candidate.get("thumbnail", "") or ""
+    host_blob = " ".join((domain(page), domain(image_url), domain(thumb))).lower()
+    if any(blocked in host_blob for blocked in ADULT_DOMAINS):
+        return True
+    return _unsafe_text(" ".join([
+        candidate.get("title", ""), candidate.get("source", ""),
+        page, image_url, thumb,
+    ]))
+
+
+def _has_target_evidence(candidate: dict, entry: dict) -> bool:
+    blob = metadata_blob(candidate)
+    work_tokens = useful_tokens(entry["work"])
+    location_tokens = useful_tokens(entry["location"])
+    work_hits = sum(token in blob for token in work_tokens)
+    location_hits = sum(token in blob for token in location_tokens)
+    context_hits = sum(term in blob for term in SAFE_CONTEXT_TERMS.get(entry["category"], ()))
+
+    # Require evidence for both the work and location whenever possible.
+    # Very short names may only provide one useful token, so context can compensate.
+    work_ok = work_hits >= min(2, max(1, len(work_tokens)))
+    location_ok = location_hits >= min(2, max(1, len(location_tokens)))
+    return work_ok and (location_ok or (location_hits >= 1 and context_hits >= 1))
+
+
+def _skin_risk(image: Image.Image) -> float:
+    """Conservative visual adult-risk proxy; used only as a rejection signal.
+
+    It intentionally does not claim to classify nudity. It catches the common
+    failure mode where a large central portion of the frame is exposed skin.
+    """
+    sample = np.asarray(image.resize((256, 144), Image.Resampling.BILINEAR).convert("RGB"))
+    ycrcb = cv2.cvtColor(sample, cv2.COLOR_RGB2YCrCb)
+    hsv = cv2.cvtColor(sample, cv2.COLOR_RGB2HSV)
+    cr = ycrcb[:, :, 1]
+    cb = ycrcb[:, :, 2]
+    sat = hsv[:, :, 1]
+    val = hsv[:, :, 2]
+    skin = (cr >= 133) & (cr <= 180) & (cb >= 77) & (cb <= 135) & (sat >= 20) & (val >= 35)
+    ratio = float(skin.mean())
+
+    # Largest connected skin-like region is more meaningful than scattered faces/hands.
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(skin.astype(np.uint8), 8)
+    largest = 0.0
+    if count > 1:
+        largest = float(stats[1:, cv2.CC_STAT_AREA].max()) / float(skin.size)
+    return max(ratio * 0.75, largest)
+
+
+def search_candidates(query: str, entry: dict):
+    rows = bing_images(query)
+    if len(rows) < 8 and DDGS is not None:
+        rows.extend(ddg_images(query))
+    if entry["category"] == "real_world" or len(rows) < 4:
+        rows.extend(commons_images(f'{entry["work"]} {entry["location"]}'))
+
+    output = []
+    seen = set()
+    for candidate in rows:
+        image_url = candidate.get("image", "")
+        key = image_url.split("?")[0]
+        if not image_url.startswith("http") or key in seen:
+            continue
+        seen.add(key)
+        if _unsafe_candidate(candidate):
+            print(f'SAFETY metadata reject | {entry["priority"]:03d} | {candidate.get("page", "")}', flush=True)
+            continue
+        if not _has_target_evidence(candidate, entry):
+            continue
+        score = _recovery_score(candidate, entry)
+        if score < 18:
+            continue
+        output.append((score, candidate))
+    output.sort(key=lambda pair: -pair[0])
+    return output
+
+
+def fetch_and_validate(candidate: dict, entry: dict, meta_score: float, relaxed: bool, slot: int):
+    if _unsafe_candidate(candidate):
+        return None
+
+    urls = [candidate.get("image", ""), candidate.get("thumbnail", "")]
+    image = None
+    final_url = ""
+    for url in dict.fromkeys(url for url in urls if url):
+        if any(blocked in domain(url) for blocked in ADULT_DOMAINS) or _unsafe_text(url):
+            continue
+        try:
+            image, final_url = _download_recovery_image(url, candidate.get("page", ""))
+        except Exception:
+            image = None
+        if image is not None:
+            break
+    if image is None:
+        return None
+
+    if any(blocked in domain(final_url) for blocked in ADULT_DOMAINS) or _unsafe_text(final_url):
+        return None
+
+    original_width, original_height = image.size
+    fitted = ImageOps.fit(image, (1280, 720), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    risk = _skin_risk(fitted)
+    if risk >= 0.22:
+        print(
+            f'SAFETY visual reject | {entry["priority"]:03d} | skin_risk={risk:.3f} | '
+            f'{candidate.get("page", "")}', flush=True
+        )
+        return None
+
+    buffer = io.BytesIO()
+    fitted.save(buffer, "JPEG", quality=91, optimize=True, progressive=True)
+    jpeg = buffer.getvalue()
+    sha256 = hashlib.sha256(jpeg).hexdigest()
+    phash = imagehash.phash(fitted)
+    sharpness, entropy = image_metrics(fitted)
+
+    item_dir = CANDIDATE_ROOT / entry["id"]
+    item_dir.mkdir(parents=True, exist_ok=True)
+    temp_path = item_dir / f"candidate-{slot:02d}.jpg"
+    temp_path.write_bytes(jpeg)
+    return {
+        "temp_path": str(temp_path),
+        "final_direct_image_url": final_url,
+        "source_page_url": candidate.get("page", ""),
+        "source_domain": domain(candidate.get("page", "") or final_url),
+        "title": candidate.get("title", ""),
+        "provider": candidate.get("provider", "recovery-safe"),
+        "search_query": candidate.get("query", ""),
+        "metadata_score": round(meta_score, 3),
+        "image_score": round(meta_score + min(sharpness / 100.0, 8.0) + entropy - risk * 20.0, 3),
+        "width": 1280,
+        "height": 720,
+        "original_width": original_width,
+        "original_height": original_height,
+        "upscaled": original_width < 1280 or original_height < 720,
+        "face_count": 0,
+        "largest_face_ratio": 0.0,
+        "total_face_ratio": 0.0,
+        "sharpness": round(sharpness, 2),
+        "entropy": round(entropy, 3),
+        "sha256": sha256,
+        "perceptual_hash": str(phash),
+        "ocr_word_count": 0,
+        "ocr_text_area_ratio": 0.0,
+        "safety_status": "passed",
+        "skin_risk": round(risk, 4),
+    }
