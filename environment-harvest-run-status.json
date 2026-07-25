@@ -1,9 +1,14 @@
 {
-  "status": "running",
+  "status": "completed",
   "workflow": "Iconic Environments Harvest 300",
-  "run_id": "30141705047",
-  "run_number": "3",
-  "head_sha": "327f71f0062130a8a3ce2916f071972b05815c83",
-  "run_url": "https://github.com/walidgdg1-ai/gradientslider/actions/runs/30141705047",
-  "artifact_name": "iconic-environments-300"
+  "run_id": "30141591047",
+  "run_url": "https://github.com/walidgdg1-ai/gradientslider/actions/runs/30141591047",
+  "artifact_name": "iconic-environments-300",
+  "accepted": 298,
+  "unique_priorities": 298,
+  "missing_priorities": [
+    258,
+    259
+  ],
+  "duplicate_priorities": []
 }
