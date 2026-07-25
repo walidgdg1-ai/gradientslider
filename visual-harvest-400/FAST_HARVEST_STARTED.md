@@ -1,2 +1,2 @@
 # Fast harvest started
-Parallel GitHub Actions collection is active.
+Polite sequential GitHub Actions collection is active.
