@@ -83,14 +83,28 @@ def load_entries():
 
 
 def main():
-    entries = load_entries()
-    if len(entries) != 300:
-        raise RuntimeError(f"Expected exactly 300 curated entries, got {len(entries)}")
-    priorities = [entry["priority"] for entry in entries]
+    all_entries = load_entries()
+    if len(all_entries) != 300:
+        raise RuntimeError(f"Expected exactly 300 curated entries, got {len(all_entries)}")
+    priorities = [entry["priority"] for entry in all_entries]
     if priorities != list(range(1, 301)):
         raise RuntimeError("Priorities must be a continuous 1..300 sequence")
-    if len({entry["id"] for entry in entries}) != 300:
+    if len({entry["id"] for entry in all_entries}) != 300:
         raise RuntimeError("Every environment must have a unique generated ID")
+
+    priority_start = int(os.getenv("PRIORITY_START", "1"))
+    priority_end = int(os.getenv("PRIORITY_END", "300"))
+    if not (1 <= priority_start <= priority_end <= 300):
+        raise RuntimeError(f"Invalid batch range {priority_start}..{priority_end}")
+    entries = [
+        entry for entry in all_entries
+        if priority_start <= entry["priority"] <= priority_end
+    ]
+    expected_count = priority_end - priority_start + 1
+    if len(entries) != expected_count:
+        raise RuntimeError(
+            f"Expected {expected_count} entries for batch {priority_start}..{priority_end}, got {len(entries)}"
+        )
 
     shutil.rmtree(ROOT, ignore_errors=True)
     shutil.rmtree(CANDIDATE_ROOT, ignore_errors=True)
@@ -102,12 +116,16 @@ def main():
     final_failures = []
 
     try:
-        print(f"Starting strict harvest for {len(entries)} iconic environments", flush=True)
+        print(
+            f"Starting strict harvest for priorities {priority_start}..{priority_end} "
+            f"({len(entries)} iconic environments)",
+            flush=True,
+        )
         strict_results = run_parallel(entries, relaxed=False)
         strict_failures = select_results(
             entries, strict_results, "strict", accepted, accepted_hashes, accepted_shas
         )
-        print(f"Strict selection accepted {len(accepted)}/300", flush=True)
+        print(f"Strict selection accepted {len(accepted)}/{len(entries)}", flush=True)
 
         retry_entries = [item["entry"] for item in strict_failures]
         if retry_entries and not global_budget_exhausted():
