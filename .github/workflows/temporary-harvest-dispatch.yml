@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: temporary-visual-harvest-dispatch
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   harvest:
@@ -24,6 +24,19 @@ jobs:
         with:
           ref: assets/400-luxury-3d-harvest
           fetch-depth: 0
+
+      - name: Mark workflow as started
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cat > visual-harvest-400/HARVEST_STARTED.md <<'EOF'
+          # Harvest started
+
+          GitHub Actions successfully started the 400-image collection job.
+          EOF
+          git add visual-harvest-400/HARVEST_STARTED.md
+          git commit -m "Mark 400-image visual harvest as started" || true
+          git push origin HEAD:assets/400-luxury-3d-harvest
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -53,6 +66,7 @@ jobs:
 
       - name: Write completion marker
         run: |
+          rm -f visual-harvest-400/HARVEST_STARTED.md
           cat > visual-harvest-400/HARVEST_COMPLETE.md <<'EOF'
           # Harvest complete
 
