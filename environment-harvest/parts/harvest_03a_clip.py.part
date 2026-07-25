@@ -14,6 +14,12 @@ _CLIP_INFER_LOCK = threading.Lock()
 _CLIP_TEXT_CACHE = {}
 
 
+# DDGS produced repeated 15-second timeouts on GitHub runners. Bing remains the
+# direct search provider, while Wikimedia Commons is still added for real places.
+def ddg_images(query: str):
+    return []
+
+
 def _load_clip():
     global _CLIP_MODEL, _CLIP_PROCESSOR
     if _CLIP_MODEL is not None:
@@ -99,6 +105,23 @@ def _clip_prompts(entry: dict):
     return positive, scene, negative
 
 
+def _project_text(model, encoded):
+    outputs = model.text_model(
+        input_ids=encoded["input_ids"],
+        attention_mask=encoded.get("attention_mask"),
+        return_dict=True,
+    )
+    return model.text_projection(outputs.pooler_output)
+
+
+def _project_image(model, encoded):
+    outputs = model.vision_model(
+        pixel_values=encoded["pixel_values"],
+        return_dict=True,
+    )
+    return model.visual_projection(outputs.pooler_output)
+
+
 def _clip_text_features(entry: dict):
     key = (entry["category"], entry["work"], entry["location"], entry.get("hint", ""))
     cached = _CLIP_TEXT_CACHE.get(key)
@@ -109,7 +132,7 @@ def _clip_text_features(entry: dict):
     prompts = positive + scene + negative
     with _CLIP_INFER_LOCK, torch.inference_mode():
         encoded = processor(text=prompts, padding=True, truncation=True, return_tensors="pt")
-        features = model.get_text_features(**encoded)
+        features = _project_text(model, encoded)
         features = features / features.norm(dim=-1, keepdim=True).clamp(min=1e-8)
         features = features.cpu()
     packed = (features, len(positive), len(scene), prompts)
@@ -122,7 +145,7 @@ def _clip_scores(image: Image.Image, entry: dict):
     text_features, positive_count, scene_count, prompts = _clip_text_features(entry)
     with _CLIP_INFER_LOCK, torch.inference_mode():
         encoded_image = processor(images=image, return_tensors="pt")
-        image_features = model.get_image_features(**encoded_image)
+        image_features = _project_image(model, encoded_image)
         image_features = image_features / image_features.norm(dim=-1, keepdim=True).clamp(min=1e-8)
         similarities = (image_features.cpu() @ text_features.T)[0].tolist()
 
