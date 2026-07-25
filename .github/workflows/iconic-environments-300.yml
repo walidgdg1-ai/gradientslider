@@ -1,0 +1,397 @@
+name: Iconic Environments Harvest 300
+
+on:
+  push:
+    branches:
+      - environment-harvest-300
+    paths:
+      - "environment-harvest/**"
+      - ".github/workflows/iconic-environments-300.yml"
+      - "ENVIRONMENT_HARVEST_TRIGGER.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  announce:
+    name: Publish run pointer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out execution branch
+        uses: actions/checkout@v4
+        with:
+          ref: environment-harvest-300
+
+      - name: Record active workflow run
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          HEAD_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          cat > environment-harvest-run-status.json <<EOF
+          {
+            "status": "running",
+            "workflow": "Iconic Environments Harvest 300",
+            "run_id": "${RUN_ID}",
+            "run_number": "${RUN_NUMBER}",
+            "head_sha": "${HEAD_SHA}",
+            "run_url": "${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}",
+            "artifact_name": "iconic-environments-300"
+          }
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add environment-harvest-run-status.json
+          git commit -m "Record iconic environment harvest run ${RUN_ID}" || true
+          git push origin HEAD:environment-harvest-300
+
+  harvest:
+    name: Harvest environments ${{ matrix.start }}-${{ matrix.end }}
+    needs: announce
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - batch: "01"
+            start: 1
+            end: 30
+          - batch: "02"
+            start: 31
+            end: 60
+          - batch: "03"
+            start: 61
+            end: 90
+          - batch: "04"
+            start: 91
+            end: 120
+          - batch: "05"
+            start: 121
+            end: 150
+          - batch: "06"
+            start: 151
+            end: 180
+          - batch: "07"
+            start: 181
+            end: 210
+          - batch: "08"
+            start: 211
+            end: 240
+          - batch: "09"
+            start: 241
+            end: 270
+          - batch: "10"
+            start: 271
+            end: 300
+    defaults:
+      run:
+        working-directory: environment-harvest
+
+    steps:
+      - name: Check out isolated execution branch
+        uses: actions/checkout@v4
+        with:
+          ref: environment-harvest-300
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: environment-harvest/requirements.txt
+
+      - name: Install harvest dependencies
+        run: pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Assemble and validate engine and catalog
+        run: |
+          cat parts/harvest_*.py.part > harvest.py
+          python -m py_compile harvest.py
+          python - <<'PY'
+          from pathlib import Path
+          rows = []
+          for path in sorted(Path("catalog").glob("*.tsv")):
+              for raw in path.read_text(encoding="utf-8").splitlines():
+                  if raw.strip():
+                      fields = raw.split("\t")
+                      assert len(fields) == 5, (path, raw)
+                      rows.append(fields)
+          assert len(rows) == 300, len(rows)
+          assert [int(row[0]) for row in rows] == list(range(1, 301))
+          print("Validated catalog: 300 continuous iconic environments")
+          PY
+
+      - name: Harvest batch ${{ matrix.batch }}
+        id: harvest
+        continue-on-error: true
+        env:
+          PRIORITY_START: ${{ matrix.start }}
+          PRIORITY_END: ${{ matrix.end }}
+          TARGET_IMAGES: "30"
+          MAX_WORKERS: "3"
+          HARVEST_BUDGET_SECONDS: "4800"
+          ENTRY_BUDGET_SECONDS: "70"
+          MAX_SIDE: "3200"
+        run: |
+          set -o pipefail
+          python harvest.py 2>&1 | tee "harvest-${{ matrix.batch }}.log"
+
+      - name: Preserve batch summary
+        if: always()
+        run: |
+          echo "Harvest step outcome: ${{ steps.harvest.outcome }}"
+          cat iconic-environments-300/README.txt 2>/dev/null || true
+          sed -n '1,80p' iconic-environments-300/failures.csv 2>/dev/null || true
+
+      - name: Upload batch artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: environment-batch-${{ matrix.batch }}
+          path: |
+            environment-harvest/iconic-environments-300/
+            environment-harvest/iconic-environments-300.zip
+            environment-harvest/harvest-${{ matrix.batch }}.log
+            environment-harvest/harvest.py
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
+
+  merge:
+    name: Merge the final 300-image bank
+    needs: harvest
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out execution branch
+        uses: actions/checkout@v4
+        with:
+          ref: environment-harvest-300
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install merge dependencies
+        run: pip install --disable-pip-version-check Pillow ImageHash
+
+      - name: Download all batch artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: environment-batch-*
+          path: downloaded-batches
+
+      - name: Merge images, manifests, reports and contact sheets
+        run: |
+          python - <<'PY'
+          import csv
+          import json
+          import math
+          import shutil
+          import zipfile
+          from collections import defaultdict
+          from pathlib import Path
+          import imagehash
+          from PIL import Image, ImageDraw, ImageFont
+
+          downloaded = Path("downloaded-batches")
+          final = Path("iconic-environments-300")
+          shutil.rmtree(final, ignore_errors=True)
+          final.mkdir(parents=True)
+          (final / "logs").mkdir()
+
+          records = []
+          failures = []
+          manifest_fields = None
+          for artifact in sorted(downloaded.glob("environment-batch-*")):
+              batch_root = artifact / "iconic-environments-300"
+              manifest = batch_root / "manifest.csv"
+              if manifest.exists():
+                  with manifest.open("r", encoding="utf-8-sig", newline="") as handle:
+                      reader = csv.DictReader(handle)
+                      manifest_fields = manifest_fields or reader.fieldnames
+                      for row in reader:
+                          source = batch_root / row["filename"]
+                          target = final / row["filename"]
+                          target.parent.mkdir(parents=True, exist_ok=True)
+                          if source.exists():
+                              shutil.copy2(source, target)
+                              records.append(row)
+              failure_file = batch_root / "failures.csv"
+              if failure_file.exists():
+                  with failure_file.open("r", encoding="utf-8-sig", newline="") as handle:
+                      failures.extend(csv.DictReader(handle))
+              for log in artifact.glob("harvest-*.log"):
+                  shutil.copy2(log, final / "logs" / log.name)
+
+          records.sort(key=lambda row: int(row["priority"]))
+          priorities = [int(row["priority"]) for row in records]
+          present = set(priorities)
+          missing = [number for number in range(1, 301) if number not in present]
+          duplicates = sorted(number for number, count in __import__("collections").Counter(priorities).items() if count > 1)
+
+          manifest_fields = manifest_fields or [
+              "priority", "id", "category", "work", "location", "recognition_hint", "filename",
+              "selection_pass", "source_page_url", "final_direct_image_url", "source_domain",
+              "title", "provider", "search_query", "metadata_score", "image_score", "width",
+              "height", "original_width", "original_height", "upscaled", "face_count",
+              "largest_face_ratio", "total_face_ratio", "sharpness", "entropy", "sha256",
+              "perceptual_hash"
+          ]
+          with (final / "manifest.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+              writer = csv.DictWriter(handle, fieldnames=manifest_fields, extrasaction="ignore")
+              writer.writeheader()
+              writer.writerows(records)
+          (final / "manifest.json").write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
+
+          failure_fields = ["priority", "id", "category", "work", "location", "reason"]
+          with (final / "failures.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+              writer = csv.DictWriter(handle, fieldnames=failure_fields, extrasaction="ignore")
+              writer.writeheader()
+              writer.writerows(failures)
+
+          exact_groups = defaultdict(list)
+          for row in records:
+              exact_groups[row.get("sha256", "")].append(row["priority"])
+          exact_duplicates = {key: value for key, value in exact_groups.items() if key and len(value) > 1}
+          near_pairs = []
+          parsed = []
+          for row in records:
+              try:
+                  parsed.append((int(row["priority"]), imagehash.hex_to_hash(row["perceptual_hash"])))
+              except Exception:
+                  pass
+          for index, (priority_a, hash_a) in enumerate(parsed):
+              for priority_b, hash_b in parsed[index + 1:]:
+                  distance = hash_a - hash_b
+                  if distance <= 5:
+                      near_pairs.append({"priority_a": priority_a, "priority_b": priority_b, "phash_distance": distance})
+          audit = {
+              "accepted_files": len(records),
+              "unique_priorities": len(present),
+              "missing_priorities": missing,
+              "duplicate_priorities": duplicates,
+              "exact_sha_duplicate_groups": exact_duplicates,
+              "near_duplicate_pairs": near_pairs,
+          }
+          (final / "duplicate-audit.json").write_text(json.dumps(audit, indent=2), encoding="utf-8")
+
+          try:
+              font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 15)
+              title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 23)
+          except Exception:
+              font = ImageFont.load_default()
+              title_font = ImageFont.load_default()
+          sheets = final / "contact-sheets"
+          sheets.mkdir()
+          per_page = 30
+          columns = 5
+          thumb_w, thumb_h, label_h, margin = 300, 170, 58, 24
+          rows_per_page = math.ceil(per_page / columns)
+          width = margin * 2 + columns * thumb_w
+          height = 70 + margin + rows_per_page * (thumb_h + label_h)
+          for page in range(math.ceil(len(records) / per_page)):
+              batch = records[page * per_page:(page + 1) * per_page]
+              canvas = Image.new("RGB", (width, height), "white")
+              draw = ImageDraw.Draw(canvas)
+              draw.text((margin, 20), f"Iconic Environments 300 — page {page + 1}", fill="black", font=title_font)
+              for index, row in enumerate(batch):
+                  grid_row, column = divmod(index, columns)
+                  x = margin + column * thumb_w
+                  y = 70 + grid_row * (thumb_h + label_h)
+                  source = final / row["filename"]
+                  if not source.exists():
+                      continue
+                  image = Image.open(source).convert("RGB")
+                  image.thumbnail((thumb_w - 8, thumb_h - 8), Image.Resampling.LANCZOS)
+                  tile = Image.new("RGB", (thumb_w - 8, thumb_h - 8), (235, 235, 235))
+                  tile.paste(image, ((tile.width - image.width) // 2, (tile.height - image.height) // 2))
+                  canvas.paste(tile, (x, y))
+                  label = f'{int(row["priority"]):03d} {row["work"]}\n{row["location"]}'
+                  draw.multiline_text((x, y + thumb_h - 2), label[:86], fill="black", font=font, spacing=2)
+              canvas.save(sheets / f"contact-sheet-{page + 1:02d}.jpg", quality=91, optimize=True)
+
+          category_counts = defaultdict(int)
+          for row in records:
+              category_counts[row["category"]] += 1
+          summary = [
+              "Curated environments requested: 300",
+              f"Images accepted: {len(records)}",
+              f"Unique priorities: {len(present)}",
+              f"Missing priorities: {len(missing)}",
+              f"Duplicate priorities: {len(duplicates)}",
+              "",
+              "Accepted by category:",
+          ]
+          summary.extend(f"- {key}: {category_counts[key]}" for key in sorted(category_counts))
+          summary.extend([
+              "",
+              "The duplicate audit reports exact SHA duplicates and perceptual near-duplicates without silently deleting files.",
+          ])
+          (final / "README.txt").write_text("\n".join(summary) + "\n", encoding="utf-8")
+          (final / "final-summary.json").write_text(json.dumps({
+              "accepted": len(records),
+              "unique_priorities": len(present),
+              "missing_priorities": missing,
+              "duplicate_priorities": duplicates,
+          }, indent=2), encoding="utf-8")
+
+          output = Path("iconic-environments-300.zip")
+          if output.exists():
+              output.unlink()
+          with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+              for path in sorted(final.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, path.relative_to(final.parent))
+          print((final / "README.txt").read_text(encoding="utf-8"))
+          PY
+
+      - name: Upload final 300-environment artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iconic-environments-300
+          path: |
+            iconic-environments-300.zip
+            iconic-environments-300/
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
+
+      - name: Publish final workflow status
+        if: always()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          REPOSITORY: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin environment-harvest-300
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          summary_path = Path("iconic-environments-300/final-summary.json")
+          summary = json.loads(summary_path.read_text()) if summary_path.exists() else {}
+          payload = {
+              "status": "completed",
+              "workflow": "Iconic Environments Harvest 300",
+              "run_id": os.environ["RUN_ID"],
+              "run_url": f'{os.environ["SERVER_URL"]}/{os.environ["REPOSITORY"]}/actions/runs/{os.environ["RUN_ID"]}',
+              "artifact_name": "iconic-environments-300",
+              **summary,
+          }
+          Path("environment-harvest-run-status.json").write_text(json.dumps(payload, indent=2) + "\n")
+          PY
+          git add environment-harvest-run-status.json
+          git commit -m "Record completed iconic environment harvest ${RUN_ID}" || true
+          git push origin HEAD:environment-harvest-300
