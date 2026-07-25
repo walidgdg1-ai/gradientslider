@@ -1,0 +1,156 @@
+            valid = valid[:4]
+            if len(valid) >= 3 and valid[0]["image_score"] >= 15:
+                break
+        if len(valid) >= 3 and valid[0]["image_score"] >= 15:
+            break
+
+    reason = "" if valid else f"no validated candidate after {examined} downloads"
+    print(
+        f'[{entry["priority"]:03d}/300] {entry["work"]} — {entry["location"]}: '
+        f'{len(valid)} candidate(s) {"RELAXED" if relaxed else "STRICT"}',
+        flush=True,
+    )
+    return {"entry": entry, "candidates": valid, "reason": reason}
+
+
+def duplicate_hash(hash_value: str, accepted_hashes, threshold: int = 5) -> bool:
+    candidate_hash = imagehash.hex_to_hash(hash_value)
+    return any(candidate_hash - prior <= threshold for prior in accepted_hashes)
+
+
+def select_results(entries, results_by_id, pass_name, accepted, accepted_hashes, accepted_shas):
+    failures = []
+    for entry in entries:
+        if entry["id"] in accepted:
+            continue
+        result = results_by_id.get(entry["id"], {"candidates": [], "reason": "not processed"})
+        chosen = None
+        for candidate in sorted(result.get("candidates", []), key=lambda row: -row["image_score"]):
+            if candidate["sha256"] in accepted_shas:
+                continue
+            if duplicate_hash(candidate["perceptual_hash"], accepted_hashes):
+                continue
+            chosen = candidate
+            break
+        if chosen is None:
+            failures.append({"entry": entry, "reason": result.get("reason") or "all candidates duplicated"})
+            continue
+
+        category_dir = ROOT / entry["category"]
+        category_dir.mkdir(parents=True, exist_ok=True)
+        filename = f'{entry["priority"]:03d}_{slug(entry["work"])}__{slug(entry["location"])}.jpg'
+        final_path = category_dir / filename
+        shutil.copy2(chosen["temp_path"], final_path)
+        record = {
+            "priority": entry["priority"],
+            "id": entry["id"],
+            "category": entry["category"],
+            "work": entry["work"],
+            "location": entry["location"],
+            "recognition_hint": entry.get("hint", ""),
+            "filename": str(final_path.relative_to(ROOT)),
+            "selection_pass": pass_name,
+            **{key: value for key, value in chosen.items() if key != "temp_path"},
+        }
+        accepted[entry["id"]] = record
+        accepted_hashes.append(imagehash.hex_to_hash(chosen["perceptual_hash"]))
+        accepted_shas.add(chosen["sha256"])
+    return failures
+
+
+def write_progress(completed, total, accepted_count=0):
+    payload = {
+        "completed_searches": completed,
+        "total_entries": total,
+        "accepted_so_far": accepted_count,
+        "elapsed_seconds": round(elapsed(), 1),
+        "updated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    ROOT.mkdir(parents=True, exist_ok=True)
+    (ROOT / "progress.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def run_parallel(entries, relaxed=False):
+    results = {}
+    completed = 0
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(harvest_entry, entry, relaxed): entry for entry in entries}
+        for future in as_completed(futures):
+            entry = futures[future]
+            try:
+                result = future.result()
+            except Exception as exc:
+                result = {"entry": entry, "candidates": [], "reason": repr(exc)}
+            results[entry["id"]] = result
+            completed += 1
+            if completed % 5 == 0 or completed == len(entries):
+                write_progress(completed, len(entries))
+            if global_budget_exhausted():
+                for pending in futures:
+                    pending.cancel()
+                break
+    return results
+
+
+def load_font(size: int, bold: bool = False):
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+    ]
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
+
+
+def make_contact_sheets(records):
+    sheets_dir = ROOT / "contact-sheets"
+    sheets_dir.mkdir(parents=True, exist_ok=True)
+    title_font = load_font(24, bold=True)
+    label_font = load_font(16, bold=False)
+    records = sorted(records, key=lambda row: row["priority"])
+    per_page = 30
+    columns = 5
+    thumb_w, thumb_h, label_h = 300, 170, 58
+    margin = 24
+    rows = math.ceil(per_page / columns)
+    canvas_w = margin * 2 + columns * thumb_w
+    canvas_h = 70 + margin + rows * (thumb_h + label_h)
+
+    for page_index in range(math.ceil(len(records) / per_page)):
+        batch = records[page_index * per_page:(page_index + 1) * per_page]
+        canvas = Image.new("RGB", (canvas_w, canvas_h), "white")
+        draw = ImageDraw.Draw(canvas)
+        draw.text((margin, 20), f"Iconic Environments 300 — page {page_index + 1}", fill="black", font=title_font)
+        for index, record in enumerate(batch):
+            row, col = divmod(index, columns)
+            x = margin + col * thumb_w
+            y = 70 + row * (thumb_h + label_h)
+            image = Image.open(ROOT / record["filename"]).convert("RGB")
+            image.thumbnail((thumb_w - 8, thumb_h - 8), Image.Resampling.LANCZOS)
+            tile = Image.new("RGB", (thumb_w - 8, thumb_h - 8), (235, 235, 235))
+            tile.paste(image, ((tile.width - image.width) // 2, (tile.height - image.height) // 2))
+            canvas.paste(tile, (x, y))
+            label = f'{record["priority"]:03d} {record["work"]}\n{record["location"]}'
+            draw.multiline_text((x, y + thumb_h - 2), label[:78], fill="black", font=label_font, spacing=2)
+        canvas.save(sheets_dir / f"contact-sheet-{page_index + 1:02d}.jpg", quality=91, optimize=True)
+
+
+def write_reports(entries, accepted, final_failures):
+    records = sorted(accepted.values(), key=lambda row: row["priority"])
+    ROOT.mkdir(parents=True, exist_ok=True)
+    fields = [
+        "priority", "id", "category", "work", "location", "recognition_hint", "filename",
+        "selection_pass", "source_page_url", "final_direct_image_url", "source_domain",
+        "title", "provider", "search_query", "metadata_score", "image_score", "width",
+        "height", "original_width", "original_height", "upscaled", "face_count",
+        "largest_face_ratio", "total_face_ratio", "sharpness", "entropy", "sha256",
+        "perceptual_hash",
+    ]
+    with open(ROOT / "manifest.csv", "w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(records)
+    (ROOT / "manifest.json").write_text(

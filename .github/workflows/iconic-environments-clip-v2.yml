@@ -1,0 +1,184 @@
+name: Iconic Environments Guaranteed 300
+
+on:
+  push:
+    branches:
+      - environment-harvest-clip
+    paths:
+      - ".github/workflows/iconic-environments-clip-v2.yml"
+      - "environment-harvest/parts/harvest_05_guaranteed.py.part"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/iconic-environments-clip-v2.yml"
+      - "environment-harvest/**"
+  workflow_dispatch:
+
+concurrency:
+  group: iconic-environments-guaranteed-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  harvest:
+    name: Guaranteed environments ${{ matrix.start }}-${{ matrix.end }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        include:
+          - { batch: "01", start: 1, end: 30 }
+          - { batch: "02", start: 31, end: 60 }
+          - { batch: "03", start: 61, end: 90 }
+          - { batch: "04", start: 91, end: 120 }
+          - { batch: "05", start: 121, end: 150 }
+          - { batch: "06", start: 151, end: 180 }
+          - { batch: "07", start: 181, end: 210 }
+          - { batch: "08", start: 211, end: 240 }
+          - { batch: "09", start: 241, end: 270 }
+          - { batch: "10", start: 271, end: 300 }
+    defaults:
+      run:
+        working-directory: environment-harvest
+
+    steps:
+      - name: Check out recovery branch
+        uses: actions/checkout@v4
+        with:
+          ref: environment-harvest-clip
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install lightweight dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            requests Pillow ImageHash beautifulsoup4 ddgs \
+            opencv-python-headless "numpy<3" pytesseract
+
+      - name: Assemble guaranteed recovery engine
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          base = "".join(
+              Path(f"parts/harvest_{name}.py.part").read_text(encoding="utf-8")
+              for name in ["00", "01", "02", "03", "04"]
+          )
+          marker = 'if __name__ == "__main__":\n    main()'
+          head, separator, tail = base.rpartition(marker)
+          assert separator, "main invocation marker not found"
+          assert not tail.strip(), "unexpected content after main invocation"
+          recovery = Path("parts/harvest_05_guaranteed.py.part").read_text(encoding="utf-8")
+          Path("harvest.py").write_text(
+              head.rstrip() + "\n\n" + recovery.strip() + "\n\n" + marker + "\n",
+              encoding="utf-8",
+          )
+          PY
+          python -m py_compile harvest.py
+          python - <<'PY'
+          from pathlib import Path
+          rows = [
+              raw.split("\t")
+              for path in sorted(Path("catalog").glob("*.tsv"))
+              for raw in path.read_text(encoding="utf-8").splitlines()
+              if raw.strip()
+          ]
+          assert len(rows) == 300, len(rows)
+          assert [int(row[0]) for row in rows] == list(range(1, 301))
+          print("Validated guaranteed recovery engine and 300-entry catalog")
+          PY
+
+      - name: Harvest guaranteed batch ${{ matrix.batch }}
+        id: harvest
+        continue-on-error: true
+        env:
+          PRIORITY_START: ${{ matrix.start }}
+          PRIORITY_END: ${{ matrix.end }}
+          TARGET_IMAGES: "30"
+          MAX_WORKERS: "6"
+          HARVEST_BUDGET_SECONDS: "5100"
+          ENTRY_BUDGET_SECONDS: "105"
+          MAX_SIDE: "3200"
+        run: |
+          set -o pipefail
+          python harvest.py 2>&1 | tee "harvest-guaranteed-${{ matrix.batch }}.log"
+
+      - name: Verify batch count
+        if: always()
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path("iconic-environments-300")
+          images = [p for p in root.rglob("*.jpg") if "contact-sheets" not in p.parts]
+          print(f"Batch image count: {len(images)}")
+          if len(images) != 30:
+              print((root / "failures.csv").read_text(encoding="utf-8-sig") if (root / "failures.csv").exists() else "No failure report")
+          PY
+
+      - name: Upload guaranteed batch
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guaranteed-environment-batch-${{ matrix.batch }}
+          path: |
+            environment-harvest/iconic-environments-300/
+            environment-harvest/iconic-environments-300.zip
+            environment-harvest/harvest-guaranteed-${{ matrix.batch }}.log
+          if-no-files-found: warn
+          compression-level: 0
+          retention-days: 14
+
+  merge:
+    name: Merge guaranteed 300-image bank
+    needs: harvest
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: environment-harvest-clip
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install merge dependencies
+        run: python -m pip install --disable-pip-version-check Pillow ImageHash
+      - name: Download all guaranteed batches
+        uses: actions/download-artifact@v4
+        with:
+          pattern: guaranteed-environment-batch-*
+          path: environment-harvest/downloaded-batches
+      - name: Merge and audit
+        working-directory: environment-harvest
+        run: python merge_batches.py
+      - name: Hard verify final count
+        working-directory: environment-harvest
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("iconic-environments-300")
+          images = [p for p in root.rglob("*.jpg") if "contact-sheets" not in p.parts]
+          print(f"FINAL ENVIRONMENT IMAGE COUNT: {len(images)}")
+          summary = json.loads((root / "final-summary.json").read_text())
+          print(summary)
+          assert len(images) == 300, f"Expected 300 images, found {len(images)}"
+          assert summary.get("accepted") == 300, summary
+          PY
+      - name: Upload final guaranteed bank
+        uses: actions/upload-artifact@v4
+        with:
+          name: iconic-environments-GUARANTEED-300
+          path: |
+            environment-harvest/iconic-environments-300.zip
+            environment-harvest/iconic-environments-300/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

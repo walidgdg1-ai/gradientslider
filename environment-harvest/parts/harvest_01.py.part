@@ -1,0 +1,200 @@
+    return [token for token in norm(value).split() if len(token) >= 3 and token not in STOPWORDS]
+
+
+def metadata_blob(candidate: dict) -> str:
+    return norm(" ".join([
+        candidate.get("title", ""), candidate.get("page", ""),
+        candidate.get("image", ""), candidate.get("source", ""),
+    ]))
+
+
+def metadata_score(candidate: dict, entry: dict) -> float:
+    blob = metadata_blob(candidate)
+    if not blob:
+        return -999.0
+    if any(negative in blob for negative in HARD_NEGATIVE_META):
+        return -999.0
+
+    work_phrase = norm(entry["work"])
+    location_phrase = norm(entry["location"])
+    work_tokens = useful_tokens(entry["work"])
+    location_tokens = useful_tokens(entry["location"])
+    hint_tokens = useful_tokens(entry.get("hint", ""))
+
+    score = 0.0
+    work_hits = sum(token in blob for token in work_tokens)
+    location_hits = sum(token in blob for token in location_tokens)
+
+    if work_phrase and work_phrase in blob:
+        score += 11.0
+    else:
+        score += work_hits * 2.0
+    if location_phrase and location_phrase in blob:
+        score += 13.0
+    else:
+        score += location_hits * 2.6
+    score += sum(token in blob for token in hint_tokens) * 0.45
+
+    if is_good_domain(candidate.get("page", "") + candidate.get("image", "")):
+        score += 4.0
+    if "official" in blob:
+        score += 1.5
+    for term in CATEGORY_CONTEXT.get(entry["category"], ()):
+        if norm(term) in blob:
+            score += 0.7
+
+    soft_hits = sum(term in blob for term in SOFT_NEGATIVE_META)
+    score -= soft_hits * 2.4
+    if "ytimg com" in blob or "youtube com" in blob:
+        score -= 1.5
+
+    if work_phrase not in blob and work_hits == 0:
+        return -999.0
+    if location_phrase not in blob and location_hits == 0 and sum(t in blob for t in hint_tokens) < 2:
+        return -999.0
+    return score
+
+
+def ddg_images(query: str):
+    if DDGS is None or global_budget_exhausted():
+        return []
+    try:
+        with DDGS(timeout=16) as searcher:
+            rows = searcher.images(
+                query,
+                region="wt-wt",
+                safesearch="moderate",
+                max_results=50,
+            ) or []
+        output = []
+        for row in rows:
+            image_url = row.get("image") or ""
+            if image_url.startswith("http"):
+                output.append({
+                    "image": image_url,
+                    "page": row.get("url") or row.get("source") or "",
+                    "title": row.get("title") or "",
+                    "source": row.get("source") or "",
+                    "provider": "ddgs",
+                    "query": query,
+                })
+        return output
+    except Exception as exc:
+        print(f"DDG error | {query} | {exc}", flush=True)
+        return []
+
+
+def bing_images(query: str):
+    if global_budget_exhausted():
+        return []
+    output = []
+    try:
+        url = (
+            "https://www.bing.com/images/search?q=" + quote_plus(query)
+            + "&form=HDRSC2&first=1&qft=+filterui:imagesize-large"
+        )
+        response = requests.get(url, headers={"User-Agent": UA}, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        for anchor in soup.select("a.iusc"):
+            try:
+                data = json.loads(html.unescape(anchor.get("m", "{}")))
+            except Exception:
+                continue
+            image_url = data.get("murl") or ""
+            if not image_url.startswith("http"):
+                continue
+            output.append({
+                "image": image_url,
+                "page": data.get("purl") or "",
+                "title": data.get("t") or "",
+                "source": data.get("s") or "",
+                "provider": "bing",
+                "query": query,
+            })
+            if len(output) >= 60:
+                break
+    except Exception as exc:
+        print(f"Bing error | {query} | {exc}", flush=True)
+    return output
+
+
+def commons_images(query: str):
+    if global_budget_exhausted():
+        return []
+    try:
+        params = {
+            "action": "query",
+            "generator": "search",
+            "gsrsearch": query,
+            "gsrnamespace": 6,
+            "gsrlimit": 24,
+            "prop": "imageinfo",
+            "iiprop": "url|size|mime",
+            "iiurlwidth": 2600,
+            "format": "json",
+            "formatversion": 2,
+        }
+        response = requests.get(
+            "https://commons.wikimedia.org/w/api.php",
+            params=params,
+            headers={"User-Agent": UA},
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        pages = response.json().get("query", {}).get("pages", [])
+        output = []
+        for page in pages:
+            info = (page.get("imageinfo") or [{}])[0]
+            image_url = info.get("thumburl") or info.get("url") or ""
+            if image_url.startswith("http"):
+                output.append({
+                    "image": image_url,
+                    "page": info.get("descriptionurl") or "https://commons.wikimedia.org/",
+                    "title": page.get("title") or "",
+                    "source": "Wikimedia Commons",
+                    "provider": "commons",
+                    "query": query,
+                })
+        return output
+    except Exception as exc:
+        print(f"Commons error | {query} | {exc}", flush=True)
+        return []
+
+
+def search_candidates(query: str, entry: dict):
+    rows = ddg_images(query)
+    if len(rows) < 18:
+        rows.extend(bing_images(query))
+    if entry["category"] == "real_world":
+        rows.extend(commons_images(f'{entry["work"]} {entry["location"]}'))
+
+    output = []
+    local_seen = set()
+    for candidate in rows:
+        image_url = candidate.get("image", "")
+        clean_key = image_url.split("?")[0]
+        if not image_url.startswith("http") or clean_key in local_seen:
+            continue
+        if is_bad_domain(image_url) or is_bad_domain(candidate.get("page", "")):
+            continue
+        local_seen.add(clean_key)
+        score = metadata_score(candidate, entry)
+        if score <= -900:
+            continue
+        output.append((score, candidate))
+    output.sort(key=lambda pair: -pair[0])
+    return output
+
+
+def detect_faces(image: Image.Image):
+    try:
+        preview = image.copy()
+        preview.thumbnail((900, 900), Image.Resampling.LANCZOS)
+        array = cv2.cvtColor(np.asarray(preview), cv2.COLOR_RGB2GRAY)
+        cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        )
+        faces = cascade.detectMultiScale(array, scaleFactor=1.12, minNeighbors=5, minSize=(32, 32))
+        area = float(array.shape[0] * array.shape[1]) or 1.0
+        ratios = [float(w * h) / area for (_, _, w, h) in faces]
