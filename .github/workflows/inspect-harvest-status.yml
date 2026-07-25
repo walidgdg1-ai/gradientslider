@@ -20,15 +20,14 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Capture recent harvest runs
+      - name: Capture recent workflow runs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh run list \
             --repo "$GITHUB_REPOSITORY" \
-            --workflow "Temporary visual harvest dispatcher" \
-            --limit 10 \
-            --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url,event,displayTitle \
+            --limit 25 \
+            --json databaseId,workflowName,status,conclusion,headSha,createdAt,updatedAt,url,event,displayTitle \
             > harvest-run-status.json
           cat harvest-run-status.json
 
