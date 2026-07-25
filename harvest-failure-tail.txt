@@ -1,0 +1,220 @@
+harvest-fast	UNKNOWN STEP	2026-07-25T03:53:55.6221905Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 35.3/35.3 MB 142.4 MB/s  0:00:00
+harvest-fast	UNKNOWN STEP	2026-07-25T03:53:55.7709364Z Installing collected packages: urllib3, Pillow, numpy, idna, charset_normalizer, certifi, scipy, requests, PyWavelets, ImageHash
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9265675Z 
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9282514Z Successfully installed ImageHash-4.3.2 Pillow-12.3.0 PyWavelets-1.9.0 certifi-2026.7.22 charset_normalizer-3.4.9 idna-3.18 numpy-2.5.1 requests-2.34.2 scipy-1.18.0 urllib3-2.7.0
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9925639Z ##[group]Run python tools/patch_rate_aware.py
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9926034Z ^[[36;1mpython tools/patch_rate_aware.py^[[0m
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9969812Z shell: /usr/bin/bash -e {0}
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9970067Z env:
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9970333Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9970959Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9971400Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9971780Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9972161Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9972549Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:02.9972866Z ##[endgroup]
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0244647Z Patched harvester with explicit Wikimedia 429 Retry-After handling.
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0309020Z ##[group]Run python tools/harvest_commons_fast.py
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0309415Z ^[[36;1mpython tools/harvest_commons_fast.py^[[0m
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0352124Z shell: /usr/bin/bash -e {0}
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0352385Z env:
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0352648Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0353090Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0353528Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0353907Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0354282Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0354670Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+harvest-fast	UNKNOWN STEP	2026-07-25T03:54:03.0354990Z ##[endgroup]
+harvest-fast	UNKNOWN STEP	2026-07-25T03:56:34.4612322Z [luxury_motivation] 001/200 marina: File:Sunset at Marina beach, chennai1.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T03:56:38.8665482Z [luxury_motivation] 002/200 fallback: File:Narikara (43).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:56:41.6454433Z [luxury_motivation] 003/200 marina: File:Golden hour to sunset - 2019-08-27 19-22b - modelled by Marina Daschner.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:56:47.8180094Z [luxury_motivation] 004/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 112).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:56:50.6466445Z [luxury_motivation] 005/200 penthouse: File:State Office Building, Wilson Street, Madison, WI (52744534792).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:56:54.6971501Z [luxury_motivation] 006/200 first-class: File:AA First Class desk (8433377307).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:56:58.9196080Z [luxury_motivation] 007/200 fallback: File:Horseshoe Falls, Niagara Falls, Ontario (29951177316).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:03.8374920Z [luxury_motivation] 008/200 penthouse: File:Entrance, State Office Building, Wilson Street, Madison, WI (52744537612).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:06.6725261Z [luxury_motivation] 009/200 fallback: File:تفلیس Tbilisi თბილისი 34.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:09.5629097Z [luxury_motivation] 010/200 marina: File:Mooloolaba Marina at sunset, Mooloolaba Queensland.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:12.4211868Z [luxury_motivation] 011/200 private-jet: File:Embraer Lineage 1000 middle cabin interior.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:15.2514092Z [luxury_motivation] 012/200 fallback: File:1998 08 Schloss Miramare 20210122191539 01 (50981858216).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:18.0327322Z [luxury_motivation] 013/200 fallback: File:Calgary Skyline (206561463).jpeg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:22.2529297Z [luxury_motivation] 014/200 fallback: File:Narikara (26).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:26.1405788Z [luxury_motivation] 015/200 fallback: File:Yachts and Caravan, the Swale - geograph.org.uk - 4489936.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:29.0495811Z [luxury_motivation] 016/200 resort: File:Four Seasons Hualalai pool at sunset.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:33.3610896Z [luxury_motivation] 017/200 fallback: File:Horseshoe Falls, Niagara Falls, Ontario (29951131386).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:36.2000580Z [luxury_motivation] 018/200 fallback: File:Kartlis Deda - Mother of a Kartli or Mother of a Georgian - Photo by Mostafa Meraji 08.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:39.0078884Z [luxury_motivation] 019/200 private-jet: File:HA420 HondaJet N719SJ cabin.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:44.8867900Z [luxury_motivation] 020/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 38).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:47.6962584Z [luxury_motivation] 021/200 private-jet: File:Embraer Lineage 1000 Interior Forward Cabin.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:50.4668679Z [luxury_motivation] 022/200 mansion: File:Jones-Stewart Mansion Interior (8032840473).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:53.3178423Z [luxury_motivation] 023/200 first-class: File:Airbus Airspace Business Class, AIX 2023, Hamburg (PEW37918-1).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:56.1555311Z [luxury_motivation] 024/200 resort: File:MC 澳門 Macau Peninsula 南灣 Nan Wan Yoho Treasure Island Hotel outdoor Infinity Swimming Pool morning March 2026 N13P 22.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:57:59.0628569Z [luxury_motivation] 025/200 hotel: File:Stained Glass, Lobby, Arizona Biltmore Hotel, Missouri Ave, Biltmore Area, Phoenix, AZ.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:03.2433354Z [luxury_motivation] 026/200 resort: File:MC 澳門 Macau Peninsula 南灣 Nan Wan Yoho Treasure Island Hotel outdoor Infinity Swimming Pool morning March 2026 N13P 11.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:06.0583728Z [luxury_motivation] 027/200 superyacht: File:2016 Luxury yacht in Barcelona.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:10.2891614Z [luxury_motivation] 028/200 fallback: File:Hornblower Cruises, Niagara Falls, Ontario (29985361245).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:14.8733535Z [luxury_motivation] 029/200 private-jet: File:Bombardier Challenger 850 galley.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:17.6963170Z [luxury_motivation] 030/200 fallback: File:Münster, LVM, Bürogebäude -- 2013 -- 5149-51.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:21.9717279Z [luxury_motivation] 031/200 superyacht: File:Little & large yachts. (51455874600).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:26.6981398Z [luxury_motivation] 032/200 penthouse: File:State Office Building, Wilson Street, Madison, WI (52745550423).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:29.5515400Z [luxury_motivation] 033/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 100).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:33.6032009Z [luxury_motivation] 034/200 fallback: File:North Macedonia, Ohrid.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:44.1258311Z [luxury_motivation] 035/200 private-jet: File:HP Business Inkjet 1200n - Continuous Ink System - Interior overview.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:52.1374085Z [luxury_motivation] 036/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 93).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:58:57.4964976Z [luxury_motivation] 037/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 157).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:00.4211170Z [luxury_motivation] 038/200 penthouse: File:Chicago (ILL) River North, Marina city, 1964 (4824413679).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:05.8479826Z [luxury_motivation] 039/200 superyacht: File:Superyacht Times Asia Summit.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:10.1691104Z [luxury_motivation] 040/200 resort: File:MC 澳門 Macau Peninsula 南灣 Nan Wan Yoho Treasure Island Hotel outdoor Infinity Swimming Pool morning March 2026 N13P 10.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:17.9372392Z [luxury_motivation] 041/200 resort: File:Infinity Pool at the Cancun Caribe Park Royal Grand Hotel & Resort.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:20.7919761Z [luxury_motivation] 042/200 summit: File:A hawk sits atop a puzzle globe.png
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:25.2353514Z [luxury_motivation] 043/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 56).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:27.9742566Z [luxury_motivation] 044/200 runner: File:Uphill - Explored - Flickr - Don McCullough.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:30.6515410Z [luxury_motivation] 045/200 mansion: File:Mansion Interior at Shibchar, Madaripur, Bangladesh (4).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:36.0797260Z [luxury_motivation] 046/200 mansion: File:Interior of the Yide Mansion-07.2024-12-05.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:41.7129887Z [luxury_motivation] 047/200 penthouse: File:State Office Building, Wilson Street, Madison, WI (52744538317).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:47.9559393Z [luxury_motivation] 048/200 penthouse: File:State Office Building, Wilson Street, Madison, WI (52745055156).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:52.3079718Z [luxury_motivation] 049/200 resort: File:MC 澳門 Macau Peninsula 南灣 Nan Wan Yoho Treasure Island Hotel outdoor Infinity Swimming Pool morning March 2026 N13P 17.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T03:59:56.4894802Z [luxury_motivation] 050/200 resort: File:MC 澳門 Macau Peninsula 南灣 Nan Wan Yoho Treasure Island Hotel outdoor Infinity Swimming Pool morning March 2026 N13P 05.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:03.1119489Z [luxury_motivation] 051/200 hotel: File:Bottleworks Hotel, Massachusetts Avenue and Carrollton Avenue, Indianapolis, IN - 54378174456.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:05.7659926Z [luxury_motivation] 052/200 superyacht: File:Luxury yacht being loaded onto MV Endracht - geograph.org.uk - 4274729.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:08.6170239Z [luxury_motivation] 053/200 resort: File:Villa Angelina Luxury Suites Infinity Pool.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:16.2625758Z [luxury_motivation] 054/200 resort: File:088 Irotama Infinity Pool Sunset.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:19.2713258Z [luxury_motivation] 055/200 mansion: File:Ezra Meeker Mansion interior — 008.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:27.5080141Z [luxury_motivation] 056/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 105).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:30.2970167Z [luxury_motivation] 057/200 first-class: File:SQ First Class 747 seat.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:33.1645578Z [luxury_motivation] 058/200 private-jet: File:A6-HHS Embraer ERJ-190-100ECJ Lineage 1000 Falcon Aviation Services (6601528229).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:36.0977647Z [luxury_motivation] 059/200 mansion: File:Ezra Meeker Mansion interior — 009.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:41.8337027Z [luxury_motivation] 060/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 145).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:50.1754674Z [luxury_motivation] 061/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 49).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:00:54.9405716Z [luxury_motivation] 062/200 penthouse: File:Lafayette Square, Buffalo, NY - 52685643021.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:10.8335252Z [luxury_motivation] 063/200 mansion: File:Ezra Meeker Mansion interior — 016.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:15.0742261Z [luxury_motivation] 064/200 mansion: File:Jones-Stewart Mansion Interior (8032939051).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:23.0262289Z [luxury_motivation] 065/200 work: File:The Arm-Co-Operator, May 30, 1930 - DPLA - 646233a9fc7cb68535cb5cc6307589c3 (page 4).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:34.0024933Z [luxury_motivation] 066/200 hotel: File:Lobby, Mount Washington Hotel, Bretton Woods, NH - 54305962398.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:36.7914830Z [luxury_motivation] 067/200 marina: File:Sunset over Scarborough Marina 2018.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:42.4658435Z [luxury_motivation] 068/200 penthouse: File:Lafayette Square, Buffalo, NY - 52685642796.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:46.0552179Z [luxury_motivation] 069/200 mansion: File:Interior of the Pittock Mansion (4).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:48.8104959Z [luxury_motivation] 070/200 superyacht: File:Large yacht Savannah in the gulf of la Spezia.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:51.6468737Z [luxury_motivation] 071/200 first-class: File:Qantas First Class Suite.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:54.4536649Z [luxury_motivation] 072/200 first-class: File:Emirates A380 First Class Suite ITB 2017 (3).JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T04:01:57.1777581Z [luxury_motivation] 073/200 superyacht: File:Mega Yacht O'Mega.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:07.7058775Z [luxury_motivation] 074/200 private-jet: File:Hellas Jet A320 cabin interior.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:10.4969987Z [luxury_motivation] 075/200 marina: File:Sunset over Hope Island Marina, Queensland, September 2019.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:14.8577376Z [luxury_motivation] 076/200 marina: File:Sunset at Marina beach, chennai2.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:17.7329942Z [luxury_motivation] 077/200 penthouse: File:State Office Building, Wilson Street, Madison, WI (52745547623).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:20.3910757Z [luxury_motivation] 078/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - Mountain Still (4929686757).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:23.2782238Z [luxury_motivation] 079/200 superyacht: File:Superyacht Skat at Stenpiren in Göteborg, Sweden 2012, 1.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:26.0696681Z [luxury_motivation] 080/200 first-class: File:Business class cabin of Boeing 747-400 of Cathay Pacific (25933257792).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:30.3349377Z [luxury_motivation] 081/200 marina: File:Marina beach sunset,tamilnadu - panoramio.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:34.4127410Z [luxury_motivation] 082/200 first-class: File:First Class on Air France A380 F-HPJC (4943085744).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:40.6074483Z [luxury_motivation] 083/200 first-class: File:Airbus Airspace, AIX 2023, Hamburg (PEW37918).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:48.2140041Z [luxury_motivation] 084/200 superyacht: File:Andrey Melnichenko's superyacht A, and unidentified single-mast grey superyacht in the foreground.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:50.8930197Z [luxury_motivation] 085/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - I Can See You Now (4929686715).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:02:56.7291755Z [luxury_motivation] 086/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 58).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:00.9768865Z [luxury_motivation] 087/200 first-class: File:F-GSQM 777 AIR FRANCE FIRST CLASS BEFORE TAKE OFF FLIGHT CDG-IAH (10351527626).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:03.7148829Z [luxury_motivation] 088/200 superyacht: File:CONSTITUTION (Hull of large yacht at pier, N.Y.C.) LCCN2003656190.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:06.3669487Z [luxury_motivation] 089/200 private-jet: File:SSJ-100-95 (5839555204).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:09.1022780Z [luxury_motivation] 090/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - Night Vision (4930276400).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:11.8443927Z [luxury_motivation] 091/200 summit: File:Sunrise from Mardi Himal.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:16.1326024Z [luxury_motivation] 092/200 mansion: File:Jones-Stewart Mansion Interior (8032841696).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:18.8648478Z [luxury_motivation] 093/200 monaco: File:Monaco-Yachthafen.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:21.6563928Z [luxury_motivation] 094/200 private-jet: File:Beechcraft King Air 65-90 - DPLA - 080fc286c7edfb58f2b85f348e76cad7 (page 5).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:30.2316572Z [luxury_motivation] 095/200 private-jet: File:Bombardier Challenger 300 galley.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:33.0235360Z [luxury_motivation] 096/200 first-class: File:Singapore Airlines First Class.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:37.4357010Z [luxury_motivation] 097/200 hotel: File:Lobby, Arizona Biltmore Hotel, Missouri Ave, Biltmore Area, Phoenix, AZ - 54438129540.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:41.8534912Z [luxury_motivation] 098/200 superyacht: File:Yacht moored at Riva dei Sette Martiri.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:52.1679820Z [luxury_motivation] 099/200 resort: File:MC 澳門 Macau Peninsula 南灣 Nan Wan Yoho Treasure Island Hotel outdoor Infinity Swimming Pool morning March 2026 N13P 28.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:55.1409719Z [luxury_motivation] 100/200 penthouse: File:Entrance, State Office Building, Wilson Street, Madison, WI (52745310529).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:03:57.8579820Z [luxury_motivation] 101/200 mansion: File:Mansion Interior at Shibchar, Madaripur, Bangladesh (6).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:00.6956688Z [luxury_motivation] 102/200 marina: File:Golden hour to sunset - 2019-08-27 19-54 - modelled by Marina Daschner.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:07.8912101Z [luxury_motivation] 103/200 marina: File:Sunsets over Hope Island Marina, Queensland, 02.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:13.6134770Z [luxury_motivation] 104/200 mansion: File:Jones-Stewart Mansion Interior (8032852878).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:19.2351513Z [luxury_motivation] 105/200 hotel: File:Lobby, Mount Washington Hotel, Bretton Woods, NH - 54304846692.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:24.4406888Z [luxury_motivation] 106/200 penthouse: File:State Office Building, Wilson Street, Madison, WI (52745545548).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:27.2009652Z [luxury_motivation] 107/200 superyacht: File:Luxury Yacht.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:39.2775374Z [luxury_motivation] 108/200 mansion: File:Jones-Stewart Mansion Interior (8032861471).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:44.9749805Z [luxury_motivation] 109/200 yacht-deck: File:The Royal Clipper at Sea with Sails Unfurled - 32278471677.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:47.6167721Z [luxury_motivation] 110/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - Preacher Man (4930276694).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:52.9843547Z [luxury_motivation] 111/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - The Colors Emerge (4930276654).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:04:58.4891935Z [luxury_motivation] 112/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 53).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:01.2803951Z [luxury_motivation] 113/200 marina: File:Golden hour to sunset - 2019-08-27 19-01 - modelled by Marina Daschner.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:04.0961814Z [luxury_motivation] 114/200 private-jet: File:AirAmbulanceCabin.JPG
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:06.8604675Z [luxury_motivation] 115/200 marina: File:Sunset at Sparks Marina (27411390814).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:09.6319526Z [luxury_motivation] 116/200 private-jet: File:Beechcraft King Air 65-90 - DPLA - 080fc286c7edfb58f2b85f348e76cad7 (page 2).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:12.4639705Z [luxury_motivation] 117/200 superyacht: File:Luxury yachts docked at an upscale marina.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:32.2452545Z [luxury_motivation] 118/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - Fallin' Comrades (4930276760).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:37.7738981Z [luxury_motivation] 119/200 villa: File:Modern American architecture - designs and plans for villas, farm-houses, cottages, city residences, churches, school-houses, etc., etc., containing fifty-five original plates givin - DPLA - e0eadee7d35cb11d07925f10da9757dd (page 109).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:40.6761129Z [luxury_motivation] 120/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - Giving unto others (4929686395).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:48.1524990Z [luxury_motivation] 121/200 first-class: File:United Airlines Domestic First Class on Boeing 737-800.jpeg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:05:55.4380286Z [luxury_motivation] 122/200 marina: File:Fattori - Marine au coucher de soleil, 1890-1895, 08-539096.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:06:02.9962542Z [luxury_motivation] 123/200 hotel: File:Lobby, Mount Washington Hotel, Bretton Woods, NH - 54306153070.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:06:34.5330926Z [luxury_motivation] 124/200 penthouse: File:Astor Building, Astor Street and Goethe Street, Gold Coast, Chicago, IL (52877802876).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:06:37.4170104Z [luxury_motivation] 125/200 hotel: File:Lobby Fireplace, Mount Washington Hotel, Bretton Woods, NH - 54304843507.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:06:50.6490070Z [luxury_motivation] 126/200 hotel: File:Bottleworks Hotel, Massachusetts Avenue and Carrollton Avenue, Indianapolis, IN - 54377301952.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:07:02.5930734Z [luxury_motivation] 127/200 summit: File:Morning Light (11442589465).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:07:08.1805727Z [luxury_motivation] 128/200 hotel: File:Reception lounge at Amantaka luxury Resort & Hotel at blue hour in Luang Prabang Laos.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:07:10.8272669Z [luxury_motivation] 129/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - Tiptoe in the Creek (4929687067).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:07:16.5030001Z [luxury_motivation] 130/200 first-class: File:A350 cabin Finnair.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:07:23.9195894Z [luxury_motivation] 131/200 resort: File:Infinity Pool (198015757).jpeg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:07:35.3885150Z [luxury_motivation] 132/200 resort: File:MC 澳門 Macau Peninsula 南灣 Nan Wan Yoho Treasure Island Hotel outdoor Infinity Swimming Pool morning March 2026 N13P 19.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:07:45.6101393Z [luxury_motivation] 133/200 hotel: File:Manuel Aires Mateus’s luxury hotel (not operational).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:08:25.5832555Z [luxury_motivation] 134/200 hotel: File:Lobby, Royal Hawaiian Hotel, Kalakaua Avenue, Waikiki, Honolulu, HI - 52273169873.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:08:58.7466015Z [luxury_motivation] 135/200 summit: File:Mount Fuji from Mount Kisokoma 1993-09-12.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:09:28.0650906Z [luxury_motivation] 136/200 hotel: File:Entrance lobby of Amantaka luxury Resort & Hotel at blue hour in Luang Prabang Laos.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:09:38.6286880Z [luxury_motivation] 137/200 work: File:The Arm-Co-Operator, May 30, 1930 - DPLA - 646233a9fc7cb68535cb5cc6307589c3 (page 2).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:09:48.6167336Z [luxury_motivation] 138/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - A Cold Winter Day (4929685943).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:09:58.6308605Z [luxury_motivation] 139/200 work: File:Army Photography Contest - 2007 - FMWRC - Arts and Crafts - Son in the Tub (4929686071).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:12:26.7432012Z [luxury_motivation] 140/200 summit: File:Morning Light (11442643756).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:14:59.5592629Z [luxury_motivation] 141/200 yacht-deck: File:Reverie at Barcelona - IMO 8975067 (2928129268).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:15:02.3524492Z [luxury_motivation] 142/200 summit: File:Sunny Tree (11443186035).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:16:06.6681130Z [luxury_motivation] 143/200 travel: File:"New German Zepp, Now in Flight to America, is Palace of the Skies" "Graf Zepplin is Biggest of All" newspaper article with photos in the Roseburg News-Review on page 1, October 11, 1928.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:20:18.4382785Z [luxury_motivation] 144/200 summit: File:Lauparen.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:20:43.8836731Z [luxury_motivation] 145/200 summit: File:Cloudy (11443162304).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:22:15.3653128Z [luxury_motivation] 146/200 summit: File:Morning Light (11442818823).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:23:17.6115377Z [luxury_motivation] 147/200 yacht-deck: File:The Royal Clipper at Sea with Sails Unfurled - 32278571137.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:24:25.5582595Z [luxury_motivation] 148/200 summit: File:Morning Light (11442776313).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:24:28.3600199Z [luxury_motivation] 149/200 yacht-deck: File:Royal Clipper at sea.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:25:23.6264643Z [luxury_motivation] 150/200 yacht-deck: File:The Royal Clipper at Sea with Sails Unfurled - 47220706381.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:27:08.0865818Z [luxury_motivation] 151/200 yacht-deck: File:The Royal Clipper at Sea with Sails Unfurled - 32278569807.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:27:41.7806615Z [luxury_motivation] 152/200 travel: File:Royal Cliff Pattaya Thakur Dalip Singh (135534717).jpeg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:28:11.3292463Z [luxury_motivation] 153/200 summit: File:Morning Light (11442581145).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:28:35.2664074Z [luxury_motivation] 154/200 summit: File:Little Tahoma. Summit under cloud cap. Fuzzy lenticular cloud. 101977. slide (e23ca8596c6a4d7c865fbef8ac584587).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:32:36.7580098Z [luxury_motivation] 155/200 yacht-deck: File:DGJ 3798 - Pearl Mist - sits and waits...(interesting reading) (6053586722).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:32:52.4998706Z [luxury_motivation] 156/200 yacht-deck: File:The Royal Clipper at Sea with Sails Unfurled - 46306318635.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:37:10.8385835Z [luxury_motivation] 157/200 yacht-deck: File:Luxury Motor Yacht Sequel P (5967930378).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:39:33.2812410Z [luxury_motivation] 158/200 yacht-deck: File:The Royal Clipper at Sea with Sails Unfurled - 47220703461.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:39:36.0525602Z [luxury_motivation] 159/200 monaco: File:Monaco City Interchange (164474927).jpeg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:40:33.0932656Z [luxury_motivation] 160/200 monaco: File:Monaco Fontvieille (48928513252).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:41:08.5767457Z [luxury_motivation] 161/200 yacht-deck: File:Reverie at Barcelona - IMO 8975067 (2928133024).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:46:04.6563855Z [luxury_motivation] 162/200 yacht-deck: File:The Royal Clipper at Sea with Sails Unfurled - 33345185828.jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:50:23.9912867Z [luxury_motivation] 163/200 travel: File:Scottsdale, Arizona (101299903).jpg
+harvest-fast	UNKNOWN STEP	2026-07-25T04:51:27.0625338Z [luxury_motivation] 164/200 monaco: File:Monaco (167543153).jpeg
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0121429Z Traceback (most recent call last):
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0129662Z   File "/home/runner/work/gradientslider/gradientslider/tools/harvest_commons_fast.py", line 215, in <module>
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0130580Z     if __name__=='__main__':main()
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0130843Z                             ^^^^^^
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0131388Z   File "/home/runner/work/gradientslider/gradientslider/tools/harvest_commons_fast.py", line 202, in main
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0132159Z     hashes=[]; a=harvest('luxury_motivation',LUXURY,hashes); b=harvest('stylized_3d',THREED,hashes); items=a+b
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0132666Z                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0133210Z   File "/home/runner/work/gradientslider/gradientslider/tools/harvest_commons_fast.py", line 188, in harvest
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0133955Z     if len(items)!=TARGET:raise RuntimeError(f'{collection}: only {len(items)} accepted from {len(pool)} candidates')
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0134542Z                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0134992Z RuntimeError: luxury_motivation: only 164 accepted from 1115 candidates
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0639960Z ##[error]Process completed with exit code 1.
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0784267Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.0785572Z Post job cleanup.
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.1680767Z [command]/usr/bin/git version
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.1727774Z git version 2.54.0
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.1773678Z Temporarily overriding HOME='/home/runner/work/_temp/b41e09e9-fe87-4383-8003-8320bbd57e5d' before making global git config changes
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.1775124Z Adding repository directory to the temporary git global config as a safe directory
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.1781020Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/gradientslider/gradientslider
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.1824721Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.1862414Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.2127701Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.2159140Z http.https://github.com/.extraheader
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.2180819Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.2220246Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.2518963Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.2563779Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.3001751Z Cleaning up orphan processes
+harvest-fast	UNKNOWN STEP	2026-07-25T05:05:17.3281422Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
