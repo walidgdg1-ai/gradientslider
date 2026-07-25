@@ -1,0 +1,72 @@
+name: Temporary fast visual harvest
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/temporary-harvest-fast.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temporary-fast-visual-harvest
+  cancel-in-progress: true
+
+jobs:
+  harvest-fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out fast harvest branch
+        uses: actions/checkout@v4
+        with:
+          ref: assets/400-luxury-3d-fast
+          fetch-depth: 0
+
+      - name: Mark fast workflow as started
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cat > visual-harvest-400/FAST_HARVEST_STARTED.md <<'EOF'
+          # Fast harvest started
+          Parallel GitHub Actions collection is active.
+          EOF
+          git add visual-harvest-400/FAST_HARVEST_STARTED.md
+          git commit -m "Mark fast 400-image harvest as started" || true
+          git push origin HEAD:assets/400-luxury-3d-fast
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install image tooling
+        run: python -m pip install --upgrade requests Pillow ImageHash
+
+      - name: Run parallel visual harvest
+        run: python tools/harvest_commons_fast.py
+
+      - name: Verify exact output
+        run: |
+          test "$(find visual-harvest-400/luxury_motivation -type f -name '*.jpg' | wc -l)" -eq 200
+          test "$(find visual-harvest-400/stylized_3d -type f -name '*.jpg' | wc -l)" -eq 200
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('visual-harvest-400/summary.json').read_text())
+          assert s['total']==400
+          assert s['luxury_motivation']==200
+          assert s['stylized_3d']==200
+          assert s['unique_sha256']==400
+          print(s)
+          PY
+
+      - name: Commit fast dataset
+        run: |
+          rm -f visual-harvest-400/FAST_HARVEST_STARTED.md visual-harvest-400/HARVEST_STARTED.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add visual-harvest-400
+          git commit -m "Add 400 curated luxury and 3D visual references (fast harvest)"
+          git push origin HEAD:assets/400-luxury-3d-fast
