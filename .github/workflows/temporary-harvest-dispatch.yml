@@ -1,25 +1,24 @@
 name: Temporary visual harvest dispatcher
 
 on:
-  issues:
-    types: [opened]
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/temporary-harvest-dispatch.yml
 
 permissions:
   contents: write
-  issues: write
+
+concurrency:
+  group: temporary-visual-harvest-dispatch
+  cancel-in-progress: false
 
 jobs:
   harvest:
-    if: github.event.issue.title == '[AUTO] Harvest 400 visual references'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Report start
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_URL: ${{ github.event.issue.html_url }}
-        run: gh issue comment "$ISSUE_URL" --body "Harvest started on branch assets/400-luxury-3d-harvest."
-
       - name: Check out harvest branch
         uses: actions/checkout@v4
         with:
@@ -53,6 +52,18 @@ jobs:
           print(s)
           PY
 
+      - name: Write completion marker
+        run: |
+          cat > visual-harvest-400/HARVEST_COMPLETE.md <<'EOF'
+          # Harvest complete
+
+          - 200 luxury / motivation images
+          - 200 stylized 3D images
+          - 400 unique SHA-256 hashes
+          - Near-duplicate filtering with perceptual hashes
+          - Source, author and license metadata recorded in `manifest.csv` and `manifest.json`
+          EOF
+
       - name: Commit and push dataset
         run: |
           git config user.name "github-actions[bot]"
@@ -60,19 +71,3 @@ jobs:
           git add visual-harvest-400
           git commit -m "Add 400 curated luxury and 3D visual references"
           git push origin HEAD:assets/400-luxury-3d-harvest
-
-      - name: Report success
-        if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_URL: ${{ github.event.issue.html_url }}
-        run: |
-          SHA=$(git rev-parse HEAD)
-          gh issue comment "$ISSUE_URL" --body "HARVEST_COMPLETE: 400 unique images committed (200 luxury/motivation + 200 stylized 3D). Commit: $SHA"
-
-      - name: Report failure
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_URL: ${{ github.event.issue.html_url }}
-        run: gh issue comment "$ISSUE_URL" --body "HARVEST_FAILED: inspect the Temporary visual harvest dispatcher workflow logs."
