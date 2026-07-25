@@ -36,5 +36,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add harvest-run-status.json
-          git commit -m "Refresh visual harvest workflow status"
+          git commit -m "Refresh visual harvest workflow status after diagnostics"
           git push origin HEAD:main
