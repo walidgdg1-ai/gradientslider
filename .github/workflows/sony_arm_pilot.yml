@@ -1,0 +1,33 @@
+name: Sony ARM pilot
+
+on:
+  push:
+    branches:
+      - automation/sony-harvest-compute
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch engine
+        run: |
+          mkdir -p tools
+          curl -fsSL 'https://raw.githubusercontent.com/walidgdg1-ai/evergreenleadminer/automation/sony-animation-reference-harvest-18/tools/harvest_sony18.py' -o tools/harvest_sony18.py
+          curl -fsSL 'https://raw.githubusercontent.com/walidgdg1-ai/evergreenleadminer/automation/sony-animation-reference-harvest-18/tools/harvest_sony18_fast.py' -o tools/harvest_sony18_fast.py
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg libgl1
+      - run: python -m pip install requests beautifulsoup4 pillow imagehash numpy opencv-python-headless yt-dlp
+      - run: PYTHONPATH=. python tools/harvest_sony18_fast.py --group 1 --output output
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sony-arm-pilot-film-1
+          path: output/
+          compression-level: 6
+          retention-days: 7
