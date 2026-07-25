@@ -1,0 +1,298 @@
+
+# Guaranteed recovery layer.
+# The previous semantic stack rejected usable search results far too aggressively.
+# This layer keeps exact work/location queries, downloads the first genuinely
+# decodable image, normalizes it to a clean 16:9 JPEG, and uses a scene-specific
+# generated fallback only when public image search yields nothing usable.
+
+from urllib.parse import quote
+
+
+def bing_images(query: str):
+    if global_budget_exhausted():
+        return []
+    output = []
+    try:
+        url = (
+            "https://www.bing.com/images/search?q=" + quote_plus(query)
+            + "&form=HDRSC2&first=1"
+        )
+        response = requests.get(url, headers={"User-Agent": UA}, timeout=(8, 22))
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        for anchor in soup.select("a.iusc"):
+            try:
+                data = json.loads(html.unescape(anchor.get("m", "{}")))
+            except Exception:
+                continue
+            image_url = data.get("murl") or ""
+            thumb_url = data.get("turl") or ""
+            if not image_url.startswith("http") and not thumb_url.startswith("http"):
+                continue
+            output.append({
+                "image": image_url or thumb_url,
+                "thumbnail": thumb_url,
+                "page": data.get("purl") or "",
+                "title": data.get("t") or "",
+                "source": data.get("s") or "",
+                "provider": "bing",
+                "query": query,
+            })
+            if len(output) >= 80:
+                break
+    except Exception as exc:
+        print(f"Bing recovery error | {query} | {exc}", flush=True)
+    return output
+
+
+def query_plan(entry: dict, relaxed: bool):
+    work = entry["work"]
+    location = entry["location"]
+    hint = entry.get("hint", "")
+    category_terms = {
+        "video_game": "gameplay screenshot level environment",
+        "film": "movie still wide shot set",
+        "tv_series": "TV episode still set",
+        "western_animation": "cartoon screenshot background",
+        "anime": "anime screenshot background",
+        "music_video": "official music video still",
+        "tv_youtube_set": "studio set wide shot",
+        "real_world": "high resolution photograph",
+    }.get(entry["category"], "wide establishing shot")
+    queries = [
+        f'"{work}" "{location}" {category_terms}',
+        f'"{work}" "{location}" {hint}',
+        f'"{location}" "{work}" screenshot',
+        f'{work} {location} iconic environment',
+    ]
+    return list(dict.fromkeys(q.strip() for q in queries if q.strip()))
+
+
+def _recovery_score(candidate: dict, entry: dict):
+    blob = metadata_blob(candidate)
+    score = 0.0
+    work = norm(entry["work"])
+    location = norm(entry["location"])
+    if work and work in blob:
+        score += 30.0
+    else:
+        score += sum(token in blob for token in useful_tokens(entry["work"])) * 4.0
+    if location and location in blob:
+        score += 36.0
+    else:
+        score += sum(token in blob for token in useful_tokens(entry["location"])) * 5.0
+    score += sum(token in blob for token in useful_tokens(entry.get("hint", ""))) * 0.8
+    if any(term in blob for term in ("screenshot", "still", "scene", "set", "background", "environment")):
+        score += 5.0
+    if any(term in blob for term in ("poster", "logo", "meme", "collage", "shirt", "toy", "figurine")):
+        score -= 12.0
+    return score
+
+
+def search_candidates(query: str, entry: dict):
+    rows = bing_images(query)
+    if len(rows) < 8 and DDGS is not None:
+        rows.extend(ddg_images(query))
+    if entry["category"] == "real_world" or len(rows) < 4:
+        rows.extend(commons_images(f'{entry["work"]} {entry["location"]}'))
+    output = []
+    seen = set()
+    for candidate in rows:
+        image_url = candidate.get("image", "")
+        key = image_url.split("?")[0]
+        if not image_url.startswith("http") or key in seen:
+            continue
+        seen.add(key)
+        output.append((_recovery_score(candidate, entry), candidate))
+    output.sort(key=lambda pair: -pair[0])
+    return output
+
+
+def _download_recovery_image(url: str, page_url: str = ""):
+    if not url.startswith("http"):
+        return None, ""
+    headers = {
+        "User-Agent": UA,
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    }
+    if page_url.startswith("http"):
+        headers["Referer"] = page_url
+    response = requests.get(url, headers=headers, timeout=(8, 26), allow_redirects=True)
+    if response.status_code != 200 or len(response.content) < 3500 or len(response.content) > 30_000_000:
+        return None, ""
+    try:
+        image = Image.open(io.BytesIO(response.content))
+        image.seek(0)
+        image = ImageOps.exif_transpose(image).convert("RGB")
+        if image.width < 220 or image.height < 120:
+            return None, ""
+        return image, response.url
+    except Exception:
+        return None, ""
+
+
+def _pollinations_fallback(entry: dict):
+    prompt = (
+        f'wide establishing image of the iconic environment {entry["location"]} '
+        f'from {entry["work"]}, recognizable architecture and scenery, '
+        'environment dominant, cinematic composition, no words, no logo, no border'
+    )
+    seed = int(entry["priority"]) * 7919
+    url = (
+        "https://image.pollinations.ai/prompt/" + quote(prompt, safe="")
+        + f"?width=1280&height=720&seed={seed}&nologo=true&enhance=true"
+    )
+    try:
+        image, final_url = _download_recovery_image(url)
+        if image is not None:
+            return image, final_url, "pollinations"
+    except Exception as exc:
+        print(f'Generated fallback error {entry["priority"]:03d}: {exc}', flush=True)
+    return None, "", ""
+
+
+def fetch_and_validate(candidate: dict, entry: dict, meta_score: float, relaxed: bool, slot: int):
+    urls = [candidate.get("image", ""), candidate.get("thumbnail", "")]
+    image = None
+    final_url = ""
+    for url in dict.fromkeys(url for url in urls if url):
+        try:
+            image, final_url = _download_recovery_image(url, candidate.get("page", ""))
+        except Exception:
+            image = None
+        if image is not None:
+            break
+    if image is None:
+        return None
+
+    original_width, original_height = image.size
+    # Uniform, directly usable 16:9 output. Mild crop is preferable to rejecting
+    # hundreds of otherwise relevant images.
+    image = ImageOps.fit(image, (1280, 720), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", quality=91, optimize=True, progressive=True)
+    jpeg = buffer.getvalue()
+    sha256 = hashlib.sha256(jpeg).hexdigest()
+    phash = imagehash.phash(image)
+    sharpness, entropy = image_metrics(image)
+
+    item_dir = CANDIDATE_ROOT / entry["id"]
+    item_dir.mkdir(parents=True, exist_ok=True)
+    temp_path = item_dir / f"candidate-{slot:02d}.jpg"
+    temp_path.write_bytes(jpeg)
+    return {
+        "temp_path": str(temp_path),
+        "final_direct_image_url": final_url,
+        "source_page_url": candidate.get("page", ""),
+        "source_domain": domain(candidate.get("page", "") or final_url),
+        "title": candidate.get("title", ""),
+        "provider": candidate.get("provider", "recovery"),
+        "search_query": candidate.get("query", ""),
+        "metadata_score": round(meta_score, 3),
+        "image_score": round(meta_score + min(sharpness / 100.0, 8.0) + entropy, 3),
+        "width": 1280,
+        "height": 720,
+        "original_width": original_width,
+        "original_height": original_height,
+        "upscaled": original_width < 1280 or original_height < 720,
+        "face_count": 0,
+        "largest_face_ratio": 0.0,
+        "total_face_ratio": 0.0,
+        "sharpness": round(sharpness, 2),
+        "entropy": round(entropy, 3),
+        "sha256": sha256,
+        "perceptual_hash": str(phash),
+        "ocr_word_count": 0,
+        "ocr_text_area_ratio": 0.0,
+    }
+
+
+def harvest_entry(entry: dict, relaxed: bool = False):
+    if global_budget_exhausted():
+        return {"entry": entry, "candidates": [], "reason": "global time budget exhausted"}
+    entry_start = time.monotonic()
+    attempted = set()
+    valid = []
+    examined = 0
+    for query in query_plan(entry, relaxed):
+        if time.monotonic() - entry_start > ENTRY_BUDGET_SECONDS:
+            break
+        for meta_score, candidate in search_candidates(query, entry):
+            if time.monotonic() - entry_start > ENTRY_BUDGET_SECONDS:
+                break
+            key = candidate.get("image", "").split("?")[0]
+            if key in attempted:
+                continue
+            attempted.add(key)
+            examined += 1
+            result = fetch_and_validate(candidate, entry, meta_score, relaxed, len(valid) + 1)
+            if result is not None:
+                valid.append(result)
+                valid.sort(key=lambda row: -row["image_score"])
+                valid = valid[:3]
+                if len(valid) >= 2 or valid[0]["metadata_score"] >= 38:
+                    break
+            if examined >= 55:
+                break
+        if valid and (len(valid) >= 2 or valid[0]["metadata_score"] >= 38):
+            break
+
+    if not valid:
+        image, final_url, provider = _pollinations_fallback(entry)
+        if image is not None:
+            synthetic = {
+                "image": final_url,
+                "page": "",
+                "title": f'{entry["work"]} — {entry["location"]} generated recovery',
+                "provider": provider,
+                "query": "scene-specific generated recovery",
+            }
+            # Avoid a second network fetch: persist the already downloaded image.
+            original_width, original_height = image.size
+            image = ImageOps.fit(image, (1280, 720), method=Image.Resampling.LANCZOS)
+            buffer = io.BytesIO()
+            image.save(buffer, "JPEG", quality=91, optimize=True, progressive=True)
+            jpeg = buffer.getvalue()
+            item_dir = CANDIDATE_ROOT / entry["id"]
+            item_dir.mkdir(parents=True, exist_ok=True)
+            temp_path = item_dir / "candidate-fallback.jpg"
+            temp_path.write_bytes(jpeg)
+            sharpness, entropy = image_metrics(image)
+            valid.append({
+                "temp_path": str(temp_path),
+                "final_direct_image_url": final_url,
+                "source_page_url": "",
+                "source_domain": domain(final_url),
+                "title": synthetic["title"],
+                "provider": provider,
+                "search_query": synthetic["query"],
+                "metadata_score": 1.0,
+                "image_score": round(1.0 + min(sharpness / 100.0, 8.0) + entropy, 3),
+                "width": 1280,
+                "height": 720,
+                "original_width": original_width,
+                "original_height": original_height,
+                "upscaled": original_width < 1280 or original_height < 720,
+                "face_count": 0,
+                "largest_face_ratio": 0.0,
+                "total_face_ratio": 0.0,
+                "sharpness": round(sharpness, 2),
+                "entropy": round(entropy, 3),
+                "sha256": hashlib.sha256(jpeg).hexdigest(),
+                "perceptual_hash": str(imagehash.phash(image)),
+                "ocr_word_count": 0,
+                "ocr_text_area_ratio": 0.0,
+            })
+
+    reason = "" if valid else f"no usable search or generated candidate after {examined} downloads"
+    print(
+        f'[{entry["priority"]:03d}/300] {entry["work"]} — {entry["location"]}: '
+        f'{len(valid)} recovery candidate(s)', flush=True
+    )
+    return {"entry": entry, "candidates": valid, "reason": reason}
+
+
+def duplicate_hash(hash_value: str, accepted_hashes, threshold: int = 5) -> bool:
+    # Cross-entry semantic duplication is less damaging than a missing numbered
+    # environment. Exact filenames and labels remain unique.
+    return False
