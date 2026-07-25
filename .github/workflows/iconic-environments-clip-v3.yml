@@ -1,3 +1,4 @@
+# Registered workflow retrigger
 name: Iconic Environments Harvest 300 CLIP V3
 
 on:
@@ -13,44 +14,11 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  announce:
-    name: Publish CLIP V3 run pointer
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: environment-harvest-clip-v3
-      - name: Record active CLIP V3 run
-        env:
-          RUN_ID: ${{ github.run_id }}
-          RUN_NUMBER: ${{ github.run_number }}
-          HEAD_SHA: ${{ github.sha }}
-          REPOSITORY: ${{ github.repository }}
-          SERVER_URL: ${{ github.server_url }}
-        run: |
-          cat > environment-harvest-clip-v3-status.json <<EOF
-          {
-            "status": "running",
-            "workflow": "Iconic Environments Harvest 300 CLIP V3",
-            "run_id": "${RUN_ID}",
-            "run_number": "${RUN_NUMBER}",
-            "head_sha": "${HEAD_SHA}",
-            "run_url": "${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}",
-            "artifact_name": "iconic-environments-300-clip-v3"
-          }
-          EOF
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add environment-harvest-clip-v3-status.json
-          git commit -m "Record active CLIP V3 harvest ${RUN_ID}" || true
-          git push origin HEAD:environment-harvest-clip-v3
-
   harvest:
     name: CLIP V3 environments ${{ matrix.start }}-${{ matrix.end }}
-    needs: announce
     runs-on: ubuntu-latest
     timeout-minutes: 95
     strategy:
@@ -73,8 +41,7 @@ jobs:
         working-directory: environment-harvest
 
     steps:
-      - name: Check out CLIP V3 branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: environment-harvest-clip-v3
       - uses: actions/setup-python@v5
@@ -192,31 +159,3 @@ jobs:
           if-no-files-found: warn
           compression-level: 0
           retention-days: 14
-      - name: Publish final status
-        if: always()
-        env:
-          RUN_ID: ${{ github.run_id }}
-          REPOSITORY: ${{ github.repository }}
-          SERVER_URL: ${{ github.server_url }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin environment-harvest-clip-v3
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          summary_path = Path("environment-harvest/iconic-environments-300/final-summary.json")
-          summary = json.loads(summary_path.read_text()) if summary_path.exists() else {}
-          payload = {
-              "status": "completed",
-              "workflow": "Iconic Environments Harvest 300 CLIP V3",
-              "run_id": os.environ["RUN_ID"],
-              "run_url": f'{os.environ["SERVER_URL"]}/{os.environ["REPOSITORY"]}/actions/runs/{os.environ["RUN_ID"]}',
-              "artifact_name": "iconic-environments-300-clip-v3",
-              **summary,
-          }
-          Path("environment-harvest-clip-v3-status.json").write_text(json.dumps(payload, indent=2) + "\n")
-          PY
-          git add environment-harvest-clip-v3-status.json
-          git commit -m "Record completed CLIP V3 harvest ${RUN_ID}" || true
-          git push origin HEAD:environment-harvest-clip-v3
