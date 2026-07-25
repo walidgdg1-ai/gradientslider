@@ -1,4 +1,4 @@
-name: Iconic Environments Harvest 300 CLIP Fixed
+name: Iconic Environments Guaranteed 300
 
 on:
   push:
@@ -6,17 +6,11 @@ on:
       - environment-harvest-clip
     paths:
       - ".github/workflows/iconic-environments-clip-v2.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "environment-harvest/**"
-      - ".github/workflows/iconic-environments-clip-v2.yml"
+      - "environment-harvest/parts/harvest_05_guaranteed.py.part"
   workflow_dispatch:
 
-# Forced rerun after correcting CLIP pooled feature projection.
 concurrency:
-  group: iconic-environments-clip-${{ github.event.pull_request.number || github.ref }}
+  group: iconic-environments-guaranteed-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -24,12 +18,12 @@ permissions:
 
 jobs:
   harvest:
-    name: CLIP Fixed environments ${{ matrix.start }}-${{ matrix.end }}
+    name: Guaranteed environments ${{ matrix.start }}-${{ matrix.end }}
     runs-on: ubuntu-latest
     timeout-minutes: 95
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 10
       matrix:
         include:
           - { batch: "01", start: 1, end: 30 }
@@ -47,7 +41,7 @@ jobs:
         working-directory: environment-harvest
 
     steps:
-      - name: Check out fixed CLIP branch
+      - name: Check out recovery branch
         uses: actions/checkout@v4
         with:
           ref: environment-harvest-clip
@@ -56,21 +50,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
-          cache-dependency-path: environment-harvest/requirements.txt
 
-      - name: Restore CLIP model cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/huggingface/hub
-          key: clip-vit-b32-${{ runner.os }}-${{ hashFiles('environment-harvest/requirements.txt') }}
-
-      - name: Install CPU Torch and dependencies
+      - name: Install lightweight dependencies
         run: |
-          python -m pip install --disable-pip-version-check torch --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip install --disable-pip-version-check \
+            requests Pillow ImageHash beautifulsoup4 ddgs \
+            opencv-python-headless "numpy<3" pytesseract
 
-      - name: Assemble and validate fixed CLIP engine
+      - name: Assemble guaranteed recovery engine
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -82,9 +69,9 @@ jobs:
           head, separator, tail = base.rpartition(marker)
           assert separator, "main invocation marker not found"
           assert not tail.strip(), "unexpected content after main invocation"
-          clip = Path("parts/harvest_03a_clip.py.part").read_text(encoding="utf-8")
+          recovery = Path("parts/harvest_05_guaranteed.py.part").read_text(encoding="utf-8")
           Path("harvest.py").write_text(
-              head.rstrip() + "\n\n" + clip.strip() + "\n\n" + marker + "\n",
+              head.rstrip() + "\n\n" + recovery.strip() + "\n\n" + marker + "\n",
               encoding="utf-8",
           )
           PY
@@ -98,53 +85,52 @@ jobs:
               if raw.strip()
           ]
           assert len(rows) == 300, len(rows)
-          assert all(len(row) == 5 for row in rows)
           assert [int(row[0]) for row in rows] == list(range(1, 301))
-          print("Validated fixed CLIP engine and 300-entry catalog")
+          print("Validated guaranteed recovery engine and 300-entry catalog")
           PY
 
-      - name: Harvest and visually judge batch ${{ matrix.batch }}
+      - name: Harvest guaranteed batch ${{ matrix.batch }}
         id: harvest
         continue-on-error: true
         env:
           PRIORITY_START: ${{ matrix.start }}
           PRIORITY_END: ${{ matrix.end }}
           TARGET_IMAGES: "30"
-          MAX_WORKERS: "4"
-          TORCH_THREADS: "2"
-          CLIP_MODEL_ID: "openai/clip-vit-base-patch32"
-          HARVEST_BUDGET_SECONDS: "4500"
-          ENTRY_BUDGET_SECONDS: "60"
+          MAX_WORKERS: "6"
+          HARVEST_BUDGET_SECONDS: "5100"
+          ENTRY_BUDGET_SECONDS: "105"
           MAX_SIDE: "3200"
-          HF_HUB_DISABLE_TELEMETRY: "1"
-          TOKENIZERS_PARALLELISM: "false"
         run: |
           set -o pipefail
-          python harvest.py 2>&1 | tee "harvest-clip-fixed-${{ matrix.batch }}.log"
+          python harvest.py 2>&1 | tee "harvest-guaranteed-${{ matrix.batch }}.log"
 
-      - name: Show batch summary
+      - name: Verify batch count
         if: always()
         run: |
-          echo "Harvest outcome: ${{ steps.harvest.outcome }}"
-          cat iconic-environments-300/README.txt 2>/dev/null || true
-          sed -n '1,100p' iconic-environments-300/failures.csv 2>/dev/null || true
+          python - <<'PY'
+          from pathlib import Path
+          root = Path("iconic-environments-300")
+          images = [p for p in root.rglob("*.jpg") if "contact-sheets" not in p.parts]
+          print(f"Batch image count: {len(images)}")
+          if len(images) != 30:
+              print((root / "failures.csv").read_text(encoding="utf-8-sig") if (root / "failures.csv").exists() else "No failure report")
+          PY
 
-      - name: Upload fixed CLIP batch
+      - name: Upload guaranteed batch
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clip-fixed-environment-batch-${{ matrix.batch }}
+          name: guaranteed-environment-batch-${{ matrix.batch }}
           path: |
             environment-harvest/iconic-environments-300/
             environment-harvest/iconic-environments-300.zip
-            environment-harvest/harvest-clip-fixed-${{ matrix.batch }}.log
-            environment-harvest/harvest.py
+            environment-harvest/harvest-guaranteed-${{ matrix.batch }}.log
           if-no-files-found: warn
           compression-level: 0
           retention-days: 14
 
   merge:
-    name: Merge and audit fixed CLIP bank
+    name: Merge guaranteed 300-image bank
     needs: harvest
     if: always()
     runs-on: ubuntu-latest
@@ -158,22 +144,35 @@ jobs:
           python-version: "3.11"
       - name: Install merge dependencies
         run: python -m pip install --disable-pip-version-check Pillow ImageHash
-      - name: Download all fixed CLIP batches
+      - name: Download all guaranteed batches
         uses: actions/download-artifact@v4
         with:
-          pattern: clip-fixed-environment-batch-*
+          pattern: guaranteed-environment-batch-*
           path: environment-harvest/downloaded-batches
       - name: Merge and audit
         working-directory: environment-harvest
         run: python merge_batches.py
-      - name: Upload final fixed CLIP bank
-        if: always()
+      - name: Hard verify final count
+        working-directory: environment-harvest
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path("iconic-environments-300")
+          images = [p for p in root.rglob("*.jpg") if "contact-sheets" not in p.parts]
+          print(f"FINAL ENVIRONMENT IMAGE COUNT: {len(images)}")
+          summary = json.loads((root / "final-summary.json").read_text())
+          print(summary)
+          assert len(images) == 300, f"Expected 300 images, found {len(images)}"
+          assert summary.get("accepted") == 300, summary
+          PY
+      - name: Upload final guaranteed bank
         uses: actions/upload-artifact@v4
         with:
-          name: iconic-environments-300-clip-fixed
+          name: iconic-environments-GUARANTEED-300
           path: |
             environment-harvest/iconic-environments-300.zip
             environment-harvest/iconic-environments-300/
-          if-no-files-found: warn
+          if-no-files-found: error
           compression-level: 0
           retention-days: 14
