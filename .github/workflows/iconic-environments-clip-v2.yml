@@ -7,6 +7,12 @@ on:
     paths:
       - ".github/workflows/iconic-environments-clip-v2.yml"
       - "environment-harvest/parts/harvest_05_guaranteed.py.part"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/iconic-environments-clip-v2.yml"
+      - "environment-harvest/**"
   workflow_dispatch:
 
 concurrency:
