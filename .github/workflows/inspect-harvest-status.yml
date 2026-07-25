@@ -20,21 +20,18 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Capture recent workflow runs
+      - name: Capture failed harvest log tail
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --limit 25 \
-            --json databaseId,workflowName,status,conclusion,headSha,createdAt,updatedAt,url,event,displayTitle \
-            > harvest-run-status.json
-          cat harvest-run-status.json
+          gh run view 30143051032 --repo "$GITHUB_REPOSITORY" --log-failed | tail -n 220 > harvest-failure-tail.txt || true
+          gh run list --repo "$GITHUB_REPOSITORY" --limit 25 --json databaseId,workflowName,status,conclusion,headSha,createdAt,updatedAt,url,event,displayTitle > harvest-run-status.json
+          cat harvest-failure-tail.txt
 
-      - name: Commit status snapshot
+      - name: Commit diagnostics
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add harvest-run-status.json
-          git commit -m "Refresh status for valid rate-aware run"
+          git add harvest-failure-tail.txt harvest-run-status.json
+          git commit -m "Record harvest failure tail" || true
           git push origin HEAD:main
