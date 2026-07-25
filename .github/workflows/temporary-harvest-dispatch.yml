@@ -1,0 +1,78 @@
+name: Temporary visual harvest dispatcher
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  harvest:
+    if: github.event.issue.title == '[AUTO] Harvest 400 visual references'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Report start
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: gh issue comment "$ISSUE_URL" --body "Harvest started on branch assets/400-luxury-3d-harvest."
+
+      - name: Check out harvest branch
+        uses: actions/checkout@v4
+        with:
+          ref: assets/400-luxury-3d-harvest
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install image tooling
+        run: python -m pip install --upgrade requests Pillow ImageHash
+
+      - name: Harvest exactly 400 images
+        run: python tools/harvest_commons_400.py
+
+      - name: Verify exact counts and uniqueness
+        run: |
+          test "$(find visual-harvest-400/luxury_motivation -type f -name '*.jpg' | wc -l)" -eq 200
+          test "$(find visual-harvest-400/stylized_3d -type f -name '*.jpg' | wc -l)" -eq 200
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s = json.loads(Path('visual-harvest-400/summary.json').read_text())
+          assert s['total'] == 400, s
+          assert s['luxury_motivation'] == 200, s
+          assert s['stylized_3d'] == 200, s
+          assert s['unique_sha256'] == 400, s
+          print(s)
+          PY
+
+      - name: Commit and push dataset
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add visual-harvest-400
+          git commit -m "Add 400 curated luxury and 3D visual references"
+          git push origin HEAD:assets/400-luxury-3d-harvest
+
+      - name: Report success
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          SHA=$(git rev-parse HEAD)
+          gh issue comment "$ISSUE_URL" --body "HARVEST_COMPLETE: 400 unique images committed (200 luxury/motivation + 200 stylized 3D). Commit: $SHA"
+
+      - name: Report failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: gh issue comment "$ISSUE_URL" --body "HARVEST_FAILED: inspect the Temporary visual harvest dispatcher workflow logs."
