@@ -1,0 +1,9 @@
+{
+  "status": "running",
+  "workflow": "Iconic Environments Harvest 300 CLIP V3",
+  "run_id": "30143405309",
+  "run_number": "1",
+  "head_sha": "d5ae111b7b1cf373c0abaeb5f1d31e085dc29330",
+  "run_url": "https://github.com/walidgdg1-ai/gradientslider/actions/runs/30143405309",
+  "artifact_name": "iconic-environments-300-clip-v3"
+}
