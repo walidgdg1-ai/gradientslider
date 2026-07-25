@@ -1,0 +1,28 @@
+harvest-fast	Run parallel visual harvest	﻿2026-07-25T03:28:47.9291163Z ##[group]Run python tools/harvest_commons_fast.py
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9291635Z ^[[36;1mpython tools/harvest_commons_fast.py^[[0m
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9340240Z shell: /usr/bin/bash -e {0}
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9340507Z env:
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9340995Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9341440Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9341875Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9342248Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9342630Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9343020Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+harvest-fast	Run parallel visual harvest	2026-07-25T03:28:47.9343343Z ##[endgroup]
+harvest-fast	Run parallel visual harvest	2026-07-25T03:32:24.7309179Z [luxury_motivation] 001/200 architecture: File:Restaurant room of Amantaka luxury Resort & Hotel in Luang Prabang Laos.jpg
+harvest-fast	Run parallel visual harvest	2026-07-25T03:36:05.4965309Z [luxury_motivation] 002/200 new-york: File:Lower Manhattan from Jersey City September 2020 panorama.jpg
+harvest-fast	Run parallel visual harvest	2026-07-25T03:36:45.6489079Z [luxury_motivation] 003/200 superyacht: File:Samsara Yacht.jpg
+harvest-fast	Run parallel visual harvest	2026-07-25T03:36:51.8608493Z [luxury_motivation] 004/200 car-interior: File:1966 AMC Ambassador DPL factory optional Custom interior at 2024 AMO meet 10of13.jpg
+harvest-fast	Run parallel visual harvest	2026-07-25T03:37:55.2151385Z [luxury_motivation] 005/200 first-class: File:A220 First Class (44703804685).jpg
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2519003Z Traceback (most recent call last):
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2536293Z   File "/home/runner/work/gradientslider/gradientslider/tools/harvest_commons_fast.py", line 199, in <module>
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2536952Z     if __name__=='__main__':main()
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2537230Z                             ^^^^^^
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2538144Z   File "/home/runner/work/gradientslider/gradientslider/tools/harvest_commons_fast.py", line 186, in main
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2538874Z     hashes=[]; a=harvest('luxury_motivation',LUXURY,hashes); b=harvest('stylized_3d',THREED,hashes); items=a+b
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2539416Z                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2540000Z   File "/home/runner/work/gradientslider/gradientslider/tools/harvest_commons_fast.py", line 172, in harvest
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2540749Z     if len(items)!=TARGET:raise RuntimeError(f'{collection}: only {len(items)} accepted from {len(pool)} candidates')
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2541332Z                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.2541776Z RuntimeError: luxury_motivation: only 5 accepted from 1033 candidates
+harvest-fast	Run parallel visual harvest	2026-07-25T03:38:00.3063131Z ##[error]Process completed with exit code 1.
