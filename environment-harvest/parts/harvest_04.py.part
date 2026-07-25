@@ -82,15 +82,21 @@ def load_entries():
     return entries
 
 
-# Strict visual-authenticity layer. It is declared after the base functions so the
-# original downloader remains available while selection becomes much more severe.
+# Strict visual-authenticity layer, declared after the base functions.
+import subprocess
 import pytesseract
+
+if not shutil.which("tesseract"):
+    subprocess.run(["sudo", "apt-get", "update", "-qq"], check=False)
+    subprocess.run(["sudo", "apt-get", "install", "-y", "-qq", "tesseract-ocr"], check=False)
 
 BAD_DOMAINS = BAD_DOMAINS + (
     "youtube.com", "youtu.be", "ytimg.com", "sketchfab.com", "moddb.com",
     "nexusmods.com", "sidequestvr.com", "moonvrhome.com", "wallhaven.cc",
     "wallpaper", "inspiredpencil.com", "fity.club", "spriters-resource.com",
     "powertrials.org", "weebly.com", "fineartamerica.com", "deviantart.com",
+    "gamebanana.com", "clipart-library.com", "flipboard.com", "animalia-life.club",
+    "outerspace.com.br", "blogspot.com", "tumblr.com",
 )
 HARD_NEGATIVE_META = HARD_NEGATIVE_META + (
     "3d model", "download free 3d", "fan remake", "fan-made remake",
@@ -98,6 +104,7 @@ HARD_NEGATIVE_META = HARD_NEGATIVE_META + (
     "sprites resource", "texture pack", "comparison", "evolution",
     "then and now", "ps5 pro", "4k hdr", "wallpaper", "thumbnail",
     "concept art", "map layout", "map overview", "reaction video",
+    "works in progress", "work in progress", "custom map", "fan project",
 )
 SOFT_NEGATIVE_META = SOFT_NEGATIVE_META + (
     "remake", "remastered", "mod", "4k", "8k", "hd edition",
@@ -106,11 +113,12 @@ SOFT_NEGATIVE_META = SOFT_NEGATIVE_META + (
 
 _NEGATIVE_SUFFIX = (
     " -remake -remastered -mod -wallpaper -thumbnail -youtube "
-    "-comparison -concept -sprite -map-layout"
+    "-comparison -concept -sprite -map-layout -fanmade"
 )
 CATEGORY_QUERIES["video_game"] = [
     'site:mobygames.com "{work}" "{location}" screenshot',
     'site:ign.com "{work}" "{location}" screenshot',
+    'site:gamespot.com "{work}" "{location}" screenshot',
     'site:fandom.com "{work}" "{location}" screenshot',
     '"{work}" "{location}" original game screenshot no HUD' + _NEGATIVE_SUFFIX,
 ] + CATEGORY_QUERIES["video_game"]
@@ -146,36 +154,80 @@ CATEGORY_QUERIES["real_world"] = [
     'site:wikipedia.org "{work}" "{location}" photograph',
 ] + CATEGORY_QUERIES["real_world"]
 
+_GENERIC_WORK_TOKENS = {
+    "the", "and", "for", "from", "with", "into", "of", "a", "an",
+    "series", "show", "movie", "film", "game", "video", "anime",
+}
+_GENERIC_LOCATION_TOKENS = {
+    "the", "and", "for", "from", "with", "of", "a", "an", "main",
+    "interior", "exterior", "wide", "shot", "scene", "set", "location",
+    "multiplayer", "map",
+}
+
+
+def identity_tokens(value: str, generic: set):
+    return [token for token in norm(value).split() if token not in generic and (token.isdigit() or len(token) >= 2)]
+
+
+def identity_matches(blob: str, entry: dict) -> bool:
+    blob_tokens = set(blob.split())
+    work_phrase = norm(entry["work"])
+    work_tokens = identity_tokens(entry["work"], _GENERIC_WORK_TOKENS)
+    if work_phrase not in blob:
+        work_hits = sum(token in blob_tokens for token in work_tokens)
+        work_coverage = work_hits / max(1, len(work_tokens))
+        numeric_work = [token for token in work_tokens if token.isdigit()]
+        if work_coverage < 0.75 or any(token not in blob_tokens for token in numeric_work):
+            return False
+
+    location_phrase = norm(entry["location"])
+    location_tokens = identity_tokens(entry["location"], _GENERIC_LOCATION_TOKENS)
+    if location_phrase not in blob:
+        location_hits = sum(token in blob_tokens for token in location_tokens)
+        minimum_hits = 1 if len(location_tokens) == 1 else 2
+        location_coverage = location_hits / max(1, len(location_tokens))
+        numeric_location = [token for token in location_tokens if token.isdigit()]
+        if location_hits < minimum_hits or location_coverage < 0.67:
+            return False
+        if any(token not in blob_tokens for token in numeric_location):
+            return False
+    return True
+
+
 _base_metadata_score = metadata_score
 
 
 def metadata_score(candidate: dict, entry: dict) -> float:
+    blob = metadata_blob(candidate)
+    if not identity_matches(blob, entry):
+        return -999.0
     score = _base_metadata_score(candidate, entry)
     if score <= -900:
         return score
-    blob = metadata_blob(candidate)
     host = domain(candidate.get("page", "") or candidate.get("image", ""))
     trusted = (
         "mobygames.com", "ign.com", "gamespot.com", "fandom.com", "wikia.com",
-        "halopedia.org", "theportalwiki.com", "minecraft.wiki", "nintendo.com",
-        "playstation.com", "xbox.com", "rockstargames.com", "movie-screencaps.com",
+        "halopedia.org", "theportalwiki.com", "minecraft.wiki", "mariowiki.com",
+        "nintendo.com", "playstation.com", "xbox.com", "rockstargames.com",
+        "callofduty.com", "counter-strike.net", "movie-screencaps.com",
         "fancaps.net", "cap-that.com", "screencapped.net", "wikimedia.org",
         "wikipedia.org", "nasa.gov", "un.org", "parliament.uk", "imvdb.com",
     )
     article_heavy = (
         "gamerant.com", "screenrant.com", "earlygame.com", "hardcoregamer.com",
         "gamingbolt.com", "pcgamesn.com", "playground.ru", "forumcommunity.net",
+        "cbr.com", "pcgamer.com", "arstechnica.com",
     )
     if any(token in host for token in trusted):
-        score += 6.0
+        score += 7.0
     if any(token in host for token in article_heavy):
-        score -= 3.0
+        score -= 4.0
     if any(token in blob for token in ("screenshot", "screencap", "film still", "episode still")):
-        score += 2.5
+        score += 3.0
     if "official" in blob:
         score += 1.0
     if any(token in blob for token in ("remake", "remastered", "mod", "ambience", "asmr")):
-        score -= 4.0
+        score -= 5.0
     return score
 
 
@@ -228,7 +280,7 @@ def fetch_and_validate(candidate: dict, entry: dict, meta_score: float, relaxed:
                     confidence = float(data["conf"][index])
                 except Exception:
                     confidence = -1
-                if confidence >= 48 and len(clean) >= 2:
+                if confidence >= 45 and len(clean) >= 2:
                     word_count += 1
                     text_area += max(0, int(data["width"][index])) * max(0, int(data["height"][index]))
         text_area_ratio = text_area / max(1, preview.width * preview.height)
@@ -236,7 +288,7 @@ def fetch_and_validate(candidate: dict, entry: dict, meta_score: float, relaxed:
             "video_game", "film", "tv_series", "western_animation", "anime", "music_video"
         }
         if entry["category"] in strict_categories:
-            reject = word_count >= 6 or text_area_ratio >= 0.050
+            reject = word_count >= 5 or text_area_ratio >= 0.040
         elif entry["category"] == "tv_youtube_set":
             reject = word_count >= 15 or text_area_ratio >= 0.12
         else:
@@ -265,10 +317,7 @@ def main():
     priority_end = int(os.getenv("PRIORITY_END", "300"))
     if not (1 <= priority_start <= priority_end <= 300):
         raise RuntimeError(f"Invalid batch range {priority_start}..{priority_end}")
-    entries = [
-        entry for entry in all_entries
-        if priority_start <= entry["priority"] <= priority_end
-    ]
+    entries = [entry for entry in all_entries if priority_start <= entry["priority"] <= priority_end]
     expected_count = priority_end - priority_start + 1
     if len(entries) != expected_count:
         raise RuntimeError(
