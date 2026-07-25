@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""Harvest one high-quality, recognizable environment image for each curated entry."""
+
+import csv
+import hashlib
+import html
+import io
+import json
+import math
+import os
+import random
+import re
+import shutil
+import time
+import unicodedata
+import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from urllib.parse import quote_plus, urlparse
+
+import cv2
+import imagehash
+import numpy as np
+import requests
+from bs4 import BeautifulSoup
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+try:
+    from ddgs import DDGS
+except Exception:
+    DDGS = None
+
+Image.MAX_IMAGE_PIXELS = 80_000_000
+
+CATALOG_DIR = Path("catalog")
+ROOT = Path("iconic-environments-300")
+CANDIDATE_ROOT = Path(".environment-candidates")
+ZIP_PATH = Path("iconic-environments-300.zip")
+TARGET = int(os.getenv("TARGET_IMAGES", "300"))
+MAX_WORKERS = int(os.getenv("MAX_WORKERS", "8"))
+RUN_BUDGET_SECONDS = int(os.getenv("HARVEST_BUDGET_SECONDS", "12600"))
+ENTRY_BUDGET_SECONDS = int(os.getenv("ENTRY_BUDGET_SECONDS", "80"))
+MAX_SIDE = int(os.getenv("MAX_SIDE", "3200"))
+START = time.monotonic()
+
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36"
+)
+REQUEST_TIMEOUT = (8, 24)
+
+BAD_DOMAINS = (
+    "pinterest.", "pinimg.", "facebook.", "instagram.", "tiktok.", "x.com",
+    "twitter.", "gettyimages.", "shutterstock.", "alamy.", "dreamstime.",
+    "depositphotos.", "123rf.", "stock.adobe.", "redbubble.", "etsy.",
+    "ebay.", "amazon.", "artstation.", "deviantart.", "behance.",
+    "wallpaperflare.", "wallpapercave.", "wallpaperaccess.", "peakpx.",
+    "fanpop.", "listal.", "tumblr.", "fineartamerica.", "teepublic.",
+)
+
+GOOD_DOMAINS = (
+    "wikimedia.", "wikipedia.", "static.wikia.", "fandom.", "wikia.",
+    "ign.", "gamespot.", "mobygames.", "launchbox-app.", "nintendo.",
+    "playstation.", "xbox.", "steamstatic.", "rockstargames.", "ea.com",
+    "ubisoft.", "warnerbros.", "disney.", "netflix.", "hbo.", "bbc.",
+    "paramount.", "universalpictures.", "marvel.", "starwars.", "nasa.gov",
+    "un.org", "parliament.uk", "fancaps.net", "cap-that.com",
+    "screencapped.net", "movie-screencaps.com", "themoviedb.org", "tmdb.org",
+    "media-amazon.com", "architecturaldigest.com", "nationalgeographic.com",
+)
+
+HARD_NEGATIVE_META = (
+    "fan art", "fanart", "cosplay", "costume", "figurine", "action figure",
+    "lego", "merchandise", "t-shirt", "t shirt", "shirt design", "mug",
+    "tattoo", "redbubble", "etsy", "deviantart", "artstation", "ai generated",
+    "midjourney", "stable diffusion", "coloring page", "papercraft", "diorama",
+    "minecraft recreation", "roblox recreation", "fortnite creative recreation",
+)
+
+SOFT_NEGATIVE_META = (
+    "poster", "wallpaper", "thumbnail", "reaction", "review", "tier list",
+    "meme", "collage", "logo", "title card", "box art", "cover art",
+    "walkthrough", "guide", "map", "blueprint", "floor plan", "concept art",
+    "behind the scenes", "making of", "premiere", "red carpet", "interview",
+)
+
+CATEGORY_QUERIES = {
+    "video_game": [
+        '"{work}" "{location}" gameplay screenshot environment',
+        '"{work}" "{location}" wide in-game screenshot no HUD',
+        '"{work}" {hint} level scenery screenshot',
+        '"{work}" "{location}" game location background',
+    ],
+    "film": [
+        '"{work}" "{location}" movie scene wide shot',
+        '"{work}" "{location}" film still set',
+        '"{work}" {hint} production still environment',
+        '"{work}" "{location}" empty set interior exterior',
+    ],
+    "tv_series": [
+        '"{work}" "{location}" TV series scene wide shot',
+        '"{work}" "{location}" television set still',
+        '"{work}" {hint} set interior exterior',
+        '"{work}" "{location}" empty room set',
+    ],
+    "western_animation": [
+        '"{work}" "{location}" animated scene screenshot',
+        '"{work}" "{location}" background wide shot',
+        '"{work}" {hint} cartoon location screencap',
+        '"{work}" "{location}" establishing shot',
+    ],
+    "anime": [
+        '"{work}" "{location}" anime scene screenshot',
+        '"{work}" "{location}" anime background wide shot',
+        '"{work}" {hint} location screencap',
+        '"{work}" "{location}" establishing shot anime',
+    ],
+    "music_video": [
+        '"{work}" "{location}" official music video scene',
+        '"{work}" "{location}" music video set wide shot',
+        '"{work}" {hint} video still',
+        '"{work}" iconic set scene',
+    ],
+    "tv_youtube_set": [
+        '"{work}" "{location}" studio set wide shot',
+        '"{work}" "{location}" show set empty',
+        '"{work}" {hint} stage background',
+        '"{work}" iconic studio set',
+    ],
+    "real_world": [
+        '"{location}" "{work}" iconic wide photograph',
+        '"{location}" {hint} interior exterior high resolution',
+        '"{work}" "{location}" documentary still',
+        '"{location}" empty wide shot',
+    ],
+}
+
+CATEGORY_CONTEXT = {
+    "video_game": ("gameplay", "screenshot", "level", "in game", "environment", "location"),
+    "film": ("movie", "film", "scene", "still", "set", "location"),
+    "tv_series": ("tv", "television", "series", "scene", "set", "interior"),
+    "western_animation": ("animation", "animated", "cartoon", "screenshot", "background", "scene"),
+    "anime": ("anime", "screenshot", "background", "scene", "location", "screencap"),
+    "music_video": ("music video", "official video", "video still", "set", "scene"),
+    "tv_youtube_set": ("studio", "set", "stage", "show", "interview", "podcast"),
+    "real_world": ("photograph", "interior", "exterior", "landmark", "documentary", "location"),
+}
+
+STOPWORDS = {
+    "the", "and", "for", "with", "from", "into", "over", "under", "outside",
+    "inside", "main", "original", "classic", "official", "series", "show", "movie",
+    "film", "game", "video", "world", "city", "street", "room", "house", "hall",
+    "exterior", "interior", "wide", "shot", "scene", "set", "location", "night",
+}
+
+
+def norm(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", norm(value)).strip("-")[:110]
+
+
+def domain(url: str) -> str:
+    try:
+        return urlparse(url or "").netloc.lower()
+    except Exception:
+        return ""
+
+
+def is_bad_domain(url: str) -> bool:
+    host = domain(url)
+    return any(bad in host for bad in BAD_DOMAINS)
+
+
+def is_good_domain(url: str) -> bool:
+    haystack = (url or "").lower()
+    return any(good in haystack for good in GOOD_DOMAINS)
+
+
+def elapsed() -> float:
+    return time.monotonic() - START
+
+
+def global_budget_exhausted() -> bool:
+    return elapsed() >= RUN_BUDGET_SECONDS
+
+
+def useful_tokens(value: str):
