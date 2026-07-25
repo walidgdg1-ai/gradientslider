@@ -31,10 +31,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cat > visual-harvest-400/FAST_HARVEST_STARTED.md <<'EOF'
           # Fast harvest started
-          Parallel GitHub Actions collection is active.
+          Polite sequential GitHub Actions collection is active.
           EOF
           git add visual-harvest-400/FAST_HARVEST_STARTED.md
-          git commit -m "Mark fast 400-image harvest as started" || true
+          git commit -m "Restart fast harvest with polite download rate" || true
           git push origin HEAD:assets/400-luxury-3d-fast
 
       - uses: actions/setup-python@v5
@@ -44,7 +44,20 @@ jobs:
       - name: Install image tooling
         run: python -m pip install --upgrade requests Pillow ImageHash
 
-      - name: Run parallel visual harvest
+      - name: Patch harvester for Wikimedia rate limits
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/harvest_commons_fast.py')
+          s=p.read_text()
+          s=s.replace('WORKERS=12', 'WORKERS=1')
+          s=s.replace('len(raw)<20000', 'len(raw)<5000')
+          s=s.replace('batch=pool[pos:pos+120]; pos+=120', 'batch=pool[pos:pos+60]; pos+=60')
+          p.write_text(s)
+          PY
+          grep -n 'WORKERS\|len(raw)\|batch=pool' tools/harvest_commons_fast.py
+
+      - name: Run rate-safe visual harvest
         run: python tools/harvest_commons_fast.py
 
       - name: Verify exact output
@@ -68,5 +81,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add visual-harvest-400
-          git commit -m "Add 400 curated luxury and 3D visual references (fast harvest)"
+          git commit -m "Add 400 curated luxury and 3D visual references (rate-safe harvest)"
           git push origin HEAD:assets/400-luxury-3d-fast
