@@ -6,10 +6,16 @@ on:
       - environment-harvest-clip
     paths:
       - ".github/workflows/iconic-environments-clip-v2.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "environment-harvest/**"
+      - ".github/workflows/iconic-environments-clip-v2.yml"
   workflow_dispatch:
 
 concurrency:
-  group: iconic-environments-clip-${{ github.ref }}
+  group: iconic-environments-clip-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
