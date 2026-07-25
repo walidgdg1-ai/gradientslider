@@ -1,0 +1,132 @@
+        json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    failure_rows = []
+    failure_by_id = {item["entry"]["id"]: item for item in final_failures}
+    for entry in entries:
+        if entry["id"] not in accepted:
+            item = failure_by_id.get(entry["id"], {})
+            failure_rows.append({
+                "priority": entry["priority"],
+                "id": entry["id"],
+                "category": entry["category"],
+                "work": entry["work"],
+                "location": entry["location"],
+                "reason": item.get("reason", "not accepted"),
+            })
+    with open(ROOT / "failures.csv", "w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["priority", "id", "category", "work", "location", "reason"],
+        )
+        writer.writeheader()
+        writer.writerows(failure_rows)
+
+    category_counts = {}
+    for record in records:
+        category_counts[record["category"]] = category_counts.get(record["category"], 0) + 1
+    summary_lines = [
+        f"Curated environments requested: {len(entries)}",
+        f"Images accepted: {len(records)}",
+        f"Images failed: {len(entries) - len(records)}",
+        f"Target: {TARGET}",
+        f"Elapsed seconds: {round(elapsed(), 1)}",
+        "",
+        "Accepted by category:",
+    ]
+    for category in sorted(category_counts):
+        summary_lines.append(f"- {category}: {category_counts[category]}")
+    summary_lines.extend([
+        "",
+        "Validation: exact work/location metadata, landscape geometry, face-area rejection,",
+        "resolution and sharpness checks, SHA-256 and global perceptual deduplication.",
+    ])
+    (ROOT / "README.txt").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
+    make_contact_sheets(records)
+    return records
+
+
+def package_output():
+    if ZIP_PATH.exists():
+        ZIP_PATH.unlink()
+    if not ROOT.exists():
+        return
+    with zipfile.ZipFile(ZIP_PATH, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+        for path in sorted(ROOT.rglob("*")):
+            if path.is_file():
+                archive.write(path, path.relative_to(ROOT.parent))
+
+
+def load_entries():
+    entries = []
+    for catalog_file in sorted(CATALOG_DIR.glob("*.tsv")):
+        with catalog_file.open("r", encoding="utf-8") as handle:
+            for line_number, raw in enumerate(handle, 1):
+                raw = raw.rstrip("\n")
+                if not raw.strip():
+                    continue
+                parts = raw.split("\t")
+                if len(parts) != 5:
+                    raise RuntimeError(f"{catalog_file}:{line_number}: expected 5 TSV fields, got {len(parts)}")
+                priority_text, category, work, location, hint = parts
+                priority = int(priority_text)
+                entries.append({
+                    "priority": priority,
+                    "category": category,
+                    "work": work,
+                    "location": location,
+                    "hint": hint,
+                    "id": f"{priority:03d}-{slug(work)}-{slug(location)}",
+                })
+    entries.sort(key=lambda row: row["priority"])
+    return entries
+
+
+def main():
+    entries = load_entries()
+    if len(entries) != 300:
+        raise RuntimeError(f"Expected exactly 300 curated entries, got {len(entries)}")
+    priorities = [entry["priority"] for entry in entries]
+    if priorities != list(range(1, 301)):
+        raise RuntimeError("Priorities must be a continuous 1..300 sequence")
+    if len({entry["id"] for entry in entries}) != 300:
+        raise RuntimeError("Every environment must have a unique generated ID")
+
+    shutil.rmtree(ROOT, ignore_errors=True)
+    shutil.rmtree(CANDIDATE_ROOT, ignore_errors=True)
+    ROOT.mkdir(parents=True)
+    CANDIDATE_ROOT.mkdir(parents=True)
+    accepted = {}
+    accepted_hashes = []
+    accepted_shas = set()
+    final_failures = []
+
+    try:
+        print(f"Starting strict harvest for {len(entries)} iconic environments", flush=True)
+        strict_results = run_parallel(entries, relaxed=False)
+        strict_failures = select_results(
+            entries, strict_results, "strict", accepted, accepted_hashes, accepted_shas
+        )
+        print(f"Strict selection accepted {len(accepted)}/300", flush=True)
+
+        retry_entries = [item["entry"] for item in strict_failures]
+        if retry_entries and not global_budget_exhausted():
+            print(f"Starting relaxed recovery for {len(retry_entries)} entries", flush=True)
+            relaxed_results = run_parallel(retry_entries, relaxed=True)
+            final_failures = select_results(
+                retry_entries, relaxed_results, "relaxed", accepted, accepted_hashes, accepted_shas
+            )
+        else:
+            final_failures = strict_failures
+    finally:
+        records = write_reports(entries, accepted, final_failures)
+        package_output()
+        shutil.rmtree(CANDIDATE_ROOT, ignore_errors=True)
+        print((ROOT / "README.txt").read_text(encoding="utf-8"), flush=True)
+
+    if len(records) < TARGET:
+        raise SystemExit(2)
+
+
+if __name__ == "__main__":
+    main()
