@@ -17,7 +17,7 @@ concurrency:
 jobs:
   harvest-fast:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - name: Check out fast harvest branch
         uses: actions/checkout@v4
@@ -25,16 +25,16 @@ jobs:
           ref: assets/400-luxury-3d-fast
           fetch-depth: 0
 
-      - name: Mark fast workflow as started
+      - name: Mark rate-aware workflow as started
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cat > visual-harvest-400/FAST_HARVEST_STARTED.md <<'EOF'
-          # Fast harvest started
-          Polite sequential GitHub Actions collection is active.
+          # Rate-aware harvest started
+          Wikimedia Retry-After handling is active.
           EOF
           git add visual-harvest-400/FAST_HARVEST_STARTED.md
-          git commit -m "Restart fast harvest with polite download rate" || true
+          git commit -m "Restart harvest with Wikimedia Retry-After handling" || true
           git push origin HEAD:assets/400-luxury-3d-fast
 
       - uses: actions/setup-python@v5
@@ -44,7 +44,7 @@ jobs:
       - name: Install image tooling
         run: python -m pip install --upgrade requests Pillow ImageHash
 
-      - name: Patch harvester for Wikimedia rate limits
+      - name: Patch harvester for explicit 429 handling
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -53,11 +53,46 @@ jobs:
           s=s.replace('WORKERS=12', 'WORKERS=1')
           s=s.replace('len(raw)<20000', 'len(raw)<5000')
           s=s.replace('batch=pool[pos:pos+120]; pos+=120', 'batch=pool[pos:pos+60]; pos+=60')
+          old="""for attempt in range(4):
+        try:
+            r=requests.get(c['source_url'],headers={'User-Agent':UA},timeout=40); r.raise_for_status(); raw=r.content
+            if len(raw)<5000:return None
+            with Image.open(io.BytesIO(raw)) as src:
+                src.load(); im=ImageOps.exif_transpose(src).convert('RGB')
+            break
+        except Exception:
+            if attempt==3:return None
+            time.sleep(1.5**attempt)"""
+          new="""for attempt in range(12):
+        try:
+            time.sleep(2.4)
+            headers={'User-Agent':'WalidVisualDatasetHarvester/3.1 (https://github.com/walidgdg1-ai/gradientslider)','Referer':'https://commons.wikimedia.org/','Accept':'image/avif,image/webp,image/png,image/jpeg,*/*'}
+            r=requests.get(c['source_url'],headers=headers,timeout=50)
+            if r.status_code == 429:
+                delay=float(r.headers.get('Retry-After','11'))+1.0
+                print(f'RATE_LIMIT wait={delay}s title={c[\"title\"]}',flush=True)
+                time.sleep(delay)
+                continue
+            r.raise_for_status(); raw=r.content
+            if len(raw)<5000:return None
+            with Image.open(io.BytesIO(raw)) as src:
+                src.load(); im=ImageOps.exif_transpose(src).convert('RGB')
+            break
+        except Exception as exc:
+            if attempt==11:
+                print(f'DOWNLOAD_FAILED {type(exc).__name__} {c[\"title\"]}',flush=True)
+                return None
+            time.sleep(min(15,2**attempt))
+    else:
+        return None"""
+          if old not in s:
+              raise SystemExit('fetch_process patch target not found')
+          s=s.replace(old,new)
           p.write_text(s)
           PY
-          grep -n 'WORKERS\|len(raw)\|batch=pool' tools/harvest_commons_fast.py
+          sed -n '112,155p' tools/harvest_commons_fast.py
 
-      - name: Run rate-safe visual harvest
+      - name: Run rate-aware visual harvest
         run: python tools/harvest_commons_fast.py
 
       - name: Verify exact output
@@ -68,18 +103,18 @@ jobs:
           import json
           from pathlib import Path
           s=json.loads(Path('visual-harvest-400/summary.json').read_text())
-          assert s['total']==400
-          assert s['luxury_motivation']==200
-          assert s['stylized_3d']==200
-          assert s['unique_sha256']==400
+          assert s['total']==400, s
+          assert s['luxury_motivation']==200, s
+          assert s['stylized_3d']==200, s
+          assert s['unique_sha256']==400, s
           print(s)
           PY
 
-      - name: Commit fast dataset
+      - name: Commit verified dataset
         run: |
           rm -f visual-harvest-400/FAST_HARVEST_STARTED.md visual-harvest-400/HARVEST_STARTED.md
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add visual-harvest-400
-          git commit -m "Add 400 curated luxury and 3D visual references (rate-safe harvest)"
+          git commit -m "Add 400 curated luxury and 3D visual references"
           git push origin HEAD:assets/400-luxury-3d-fast
