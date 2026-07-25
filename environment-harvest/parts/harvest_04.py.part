@@ -39,7 +39,7 @@
     summary_lines.extend([
         "",
         "Validation: exact work/location metadata, landscape geometry, face-area rejection,",
-        "resolution and sharpness checks, SHA-256 and global perceptual deduplication.",
+        "resolution, sharpness, OCR/text-overlay checks, SHA-256 and perceptual deduplication.",
     ])
     (ROOT / "README.txt").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
     make_contact_sheets(records)
@@ -80,6 +80,175 @@ def load_entries():
                 })
     entries.sort(key=lambda row: row["priority"])
     return entries
+
+
+# Strict visual-authenticity layer. It is declared after the base functions so the
+# original downloader remains available while selection becomes much more severe.
+import pytesseract
+
+BAD_DOMAINS = BAD_DOMAINS + (
+    "youtube.com", "youtu.be", "ytimg.com", "sketchfab.com", "moddb.com",
+    "nexusmods.com", "sidequestvr.com", "moonvrhome.com", "wallhaven.cc",
+    "wallpaper", "inspiredpencil.com", "fity.club", "spriters-resource.com",
+    "powertrials.org", "weebly.com", "fineartamerica.com", "deviantart.com",
+)
+HARD_NEGATIVE_META = HARD_NEGATIVE_META + (
+    "3d model", "download free 3d", "fan remake", "fan-made remake",
+    "unreal engine remake", "mod showcase", "custom home", "sprite sheet",
+    "sprites resource", "texture pack", "comparison", "evolution",
+    "then and now", "ps5 pro", "4k hdr", "wallpaper", "thumbnail",
+    "concept art", "map layout", "map overview", "reaction video",
+)
+SOFT_NEGATIVE_META = SOFT_NEGATIVE_META + (
+    "remake", "remastered", "mod", "4k", "8k", "hd edition",
+    "walkthrough", "guide", "review", "ambience", "asmr", "teaser",
+)
+
+_NEGATIVE_SUFFIX = (
+    " -remake -remastered -mod -wallpaper -thumbnail -youtube "
+    "-comparison -concept -sprite -map-layout"
+)
+CATEGORY_QUERIES["video_game"] = [
+    'site:mobygames.com "{work}" "{location}" screenshot',
+    'site:ign.com "{work}" "{location}" screenshot',
+    'site:fandom.com "{work}" "{location}" screenshot',
+    '"{work}" "{location}" original game screenshot no HUD' + _NEGATIVE_SUFFIX,
+] + CATEGORY_QUERIES["video_game"]
+CATEGORY_QUERIES["film"] = [
+    'site:movie-screencaps.com "{work}" "{location}"',
+    'site:fancaps.net "{work}" "{location}"',
+    'site:cap-that.com "{work}" "{location}"',
+    '"{work}" "{location}" authentic film still' + _NEGATIVE_SUFFIX,
+] + CATEGORY_QUERIES["film"]
+CATEGORY_QUERIES["tv_series"] = [
+    'site:fancaps.net "{work}" "{location}"',
+    'site:cap-that.com "{work}" "{location}"',
+    '"{work}" "{location}" authentic episode still' + _NEGATIVE_SUFFIX,
+] + CATEGORY_QUERIES["tv_series"]
+CATEGORY_QUERIES["western_animation"] = [
+    'site:fancaps.net "{work}" "{location}" screencap',
+    '"{work}" "{location}" original episode screencap' + _NEGATIVE_SUFFIX,
+] + CATEGORY_QUERIES["western_animation"]
+CATEGORY_QUERIES["anime"] = [
+    'site:fancaps.net "{work}" "{location}" anime screencap',
+    '"{work}" "{location}" original anime episode screencap' + _NEGATIVE_SUFFIX,
+] + CATEGORY_QUERIES["anime"]
+CATEGORY_QUERIES["music_video"] = [
+    'site:imvdb.com "{work}" "{location}"',
+    '"{work}" "{location}" official music video still -youtube -thumbnail',
+] + CATEGORY_QUERIES["music_video"]
+CATEGORY_QUERIES["tv_youtube_set"] = [
+    '"{work}" "{location}" official studio photograph -thumbnail -reaction',
+    '"{work}" empty studio set wide shot',
+] + CATEGORY_QUERIES["tv_youtube_set"]
+CATEGORY_QUERIES["real_world"] = [
+    'site:commons.wikimedia.org "{work}" "{location}"',
+    'site:wikipedia.org "{work}" "{location}" photograph',
+] + CATEGORY_QUERIES["real_world"]
+
+_base_metadata_score = metadata_score
+
+
+def metadata_score(candidate: dict, entry: dict) -> float:
+    score = _base_metadata_score(candidate, entry)
+    if score <= -900:
+        return score
+    blob = metadata_blob(candidate)
+    host = domain(candidate.get("page", "") or candidate.get("image", ""))
+    trusted = (
+        "mobygames.com", "ign.com", "gamespot.com", "fandom.com", "wikia.com",
+        "halopedia.org", "theportalwiki.com", "minecraft.wiki", "nintendo.com",
+        "playstation.com", "xbox.com", "rockstargames.com", "movie-screencaps.com",
+        "fancaps.net", "cap-that.com", "screencapped.net", "wikimedia.org",
+        "wikipedia.org", "nasa.gov", "un.org", "parliament.uk", "imvdb.com",
+    )
+    article_heavy = (
+        "gamerant.com", "screenrant.com", "earlygame.com", "hardcoregamer.com",
+        "gamingbolt.com", "pcgamesn.com", "playground.ru", "forumcommunity.net",
+    )
+    if any(token in host for token in trusted):
+        score += 6.0
+    if any(token in host for token in article_heavy):
+        score -= 3.0
+    if any(token in blob for token in ("screenshot", "screencap", "film still", "episode still")):
+        score += 2.5
+    if "official" in blob:
+        score += 1.0
+    if any(token in blob for token in ("remake", "remastered", "mod", "ambience", "asmr")):
+        score -= 4.0
+    return score
+
+
+def search_candidates(query: str, entry: dict):
+    rows = ddg_images(query)
+    rows.extend(bing_images(query))
+    if entry["category"] == "real_world":
+        rows.extend(commons_images(f'{entry["work"]} {entry["location"]}'))
+    output = []
+    local_seen = set()
+    for candidate in rows:
+        image_url = candidate.get("image", "")
+        clean_key = image_url.split("?")[0]
+        if not image_url.startswith("http") or clean_key in local_seen:
+            continue
+        if is_bad_domain(image_url) or is_bad_domain(candidate.get("page", "")):
+            continue
+        local_seen.add(clean_key)
+        score = metadata_score(candidate, entry)
+        if score <= -900:
+            continue
+        output.append((score, candidate))
+    output.sort(key=lambda pair: -pair[0])
+    return output
+
+
+_base_fetch_and_validate = fetch_and_validate
+
+
+def fetch_and_validate(candidate: dict, entry: dict, meta_score: float, relaxed: bool, slot: int):
+    result = _base_fetch_and_validate(candidate, entry, meta_score, relaxed, slot)
+    if result is None:
+        return None
+    path = Path(result["temp_path"])
+    try:
+        image = Image.open(path).convert("RGB")
+        preview = image.copy()
+        preview.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+        word_count = 0
+        text_area = 0
+        if shutil.which("tesseract"):
+            data = pytesseract.image_to_data(
+                preview,
+                config="--psm 11",
+                output_type=pytesseract.Output.DICT,
+            )
+            for index, text in enumerate(data.get("text", [])):
+                clean = norm(text)
+                try:
+                    confidence = float(data["conf"][index])
+                except Exception:
+                    confidence = -1
+                if confidence >= 48 and len(clean) >= 2:
+                    word_count += 1
+                    text_area += max(0, int(data["width"][index])) * max(0, int(data["height"][index]))
+        text_area_ratio = text_area / max(1, preview.width * preview.height)
+        strict_categories = {
+            "video_game", "film", "tv_series", "western_animation", "anime", "music_video"
+        }
+        if entry["category"] in strict_categories:
+            reject = word_count >= 6 or text_area_ratio >= 0.050
+        elif entry["category"] == "tv_youtube_set":
+            reject = word_count >= 15 or text_area_ratio >= 0.12
+        else:
+            reject = word_count >= 22 or text_area_ratio >= 0.16
+        if reject:
+            path.unlink(missing_ok=True)
+            return None
+        result["ocr_word_count"] = word_count
+        result["ocr_text_area_ratio"] = round(text_area_ratio, 5)
+        return result
+    except Exception:
+        return result
 
 
 def main():
