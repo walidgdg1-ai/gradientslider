@@ -1,0 +1,41 @@
+name: Inspect visual harvest status
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/inspect-harvest-status.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Capture recent harvest runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow "Temporary visual harvest dispatcher" \
+            --limit 10 \
+            --json databaseId,status,conclusion,headSha,createdAt,updatedAt,url,event,displayTitle \
+            > harvest-run-status.json
+          cat harvest-run-status.json
+
+      - name: Commit status snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add harvest-run-status.json
+          git commit -m "Record visual harvest workflow status"
+          git push origin HEAD:main
