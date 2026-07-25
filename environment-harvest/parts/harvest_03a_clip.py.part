@@ -1,0 +1,194 @@
+
+# Visual-semantic CLIP gate: metadata proves identity; CLIP proves the image
+# actually depicts the requested environment rather than a poster, portrait,
+# map, miniature, HUD, collage, or unrelated composition.
+import threading
+import torch
+from transformers import CLIPModel, CLIPProcessor
+
+_CLIP_MODEL_ID = os.getenv("CLIP_MODEL_ID", "openai/clip-vit-base-patch32")
+_CLIP_MODEL = None
+_CLIP_PROCESSOR = None
+_CLIP_LOAD_LOCK = threading.Lock()
+_CLIP_INFER_LOCK = threading.Lock()
+_CLIP_TEXT_CACHE = {}
+
+
+def _load_clip():
+    global _CLIP_MODEL, _CLIP_PROCESSOR
+    if _CLIP_MODEL is not None:
+        return _CLIP_MODEL, _CLIP_PROCESSOR
+    with _CLIP_LOAD_LOCK:
+        if _CLIP_MODEL is None:
+            os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+            os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+            torch.set_num_threads(max(1, int(os.getenv("TORCH_THREADS", "2"))))
+            print(f"Loading visual-semantic model {_CLIP_MODEL_ID}", flush=True)
+            _CLIP_PROCESSOR = CLIPProcessor.from_pretrained(_CLIP_MODEL_ID)
+            _CLIP_MODEL = CLIPModel.from_pretrained(_CLIP_MODEL_ID)
+            _CLIP_MODEL.eval()
+            _CLIP_MODEL.to("cpu")
+            print("CLIP visual-semantic model ready", flush=True)
+    return _CLIP_MODEL, _CLIP_PROCESSOR
+
+
+def _location_orientation(location: str):
+    value = norm(location)
+    interior_tokens = (
+        "interior", "room", "office", "hall", "kitchen", "bedroom", "apartment",
+        "cockpit", "chamber", "laboratory", "lab", "cafeteria", "lounge", "studio",
+        "tavern", "diner", "pub", "restaurant", "shop", "store", "bridge", "gym",
+        "library", "bathroom", "closet", "headquarters", "command center", "living room",
+    )
+    exterior_tokens = (
+        "exterior", "skyline", "street", "road", "square", "field", "island", "village",
+        "city", "beach", "desert", "harbor", "canals", "crossing", "steps", "rooftop",
+        "landscape", "plateau", "zone", "highway", "suburb", "courtyard", "forest",
+    )
+    if any(token in value for token in interior_tokens):
+        return "interior"
+    if any(token in value for token in exterior_tokens):
+        return "exterior"
+    return "neutral"
+
+
+def _clip_prompts(entry: dict):
+    work = entry["work"]
+    location = entry["location"]
+    hint = entry.get("hint", "")
+    category = entry["category"]
+
+    category_prompt = {
+        "video_game": f"an authentic in-game screenshot of {location} from {work}, recognizable level scenery, no menu",
+        "film": f"an authentic cinematic film still showing the set of {location} in {work}",
+        "tv_series": f"an authentic television episode still showing the set of {location} in {work}",
+        "western_animation": f"an authentic animation frame showing {location} in {work}, background scenery visible",
+        "anime": f"an authentic anime frame showing {location} in {work}, background scenery visible",
+        "music_video": f"an authentic official music-video still showing the set of {location} in {work}",
+        "tv_youtube_set": f"an authentic wide studio photograph of {location} from {work}",
+        "real_world": f"an authentic documentary photograph of {location}, {work}",
+    }[category]
+
+    positive = [
+        f"the iconic {location} from {work}, clearly recognizable environment",
+        f"a wide establishing shot of {location} in {work}, architecture and scenery dominant",
+        category_prompt,
+        f"{hint}; the famous location {location} from {work}",
+    ]
+    scene = [
+        "a wide environmental establishing shot with the location clearly visible",
+        "recognizable architecture or landscape, scenery dominant, very little text",
+    ]
+    negative = [
+        "a close-up portrait or group portrait where faces and characters dominate",
+        "a movie poster, promotional thumbnail, meme, collage, split screen, or image with large text",
+        "a map, floor plan, diagram, infographic, sprite sheet, menu, or user interface",
+        "a toy, miniature, model, figurine, isolated object, merchandise, or white-background render",
+        "a video game screenshot dominated by HUD, inventory, subtitles, meters, or interface elements",
+        "an action scene where characters dominate and the environment is unclear",
+        "fan art, concept art, a fan-made remake, mod showcase, or unofficial recreation",
+        "an unrelated generic location that is not the requested iconic setting",
+    ]
+    orientation = _location_orientation(location)
+    if orientation == "interior":
+        negative.append("an exterior view of a building instead of the requested interior room")
+    elif orientation == "exterior":
+        negative.append("an indoor room instead of the requested exterior location")
+    else:
+        negative.append("a detail shot that does not show the complete requested location")
+    return positive, scene, negative
+
+
+def _clip_text_features(entry: dict):
+    key = (entry["category"], entry["work"], entry["location"], entry.get("hint", ""))
+    cached = _CLIP_TEXT_CACHE.get(key)
+    if cached is not None:
+        return cached
+    model, processor = _load_clip()
+    positive, scene, negative = _clip_prompts(entry)
+    prompts = positive + scene + negative
+    with _CLIP_INFER_LOCK, torch.inference_mode():
+        encoded = processor(text=prompts, padding=True, truncation=True, return_tensors="pt")
+        features = model.get_text_features(**encoded)
+        features = features / features.norm(dim=-1, keepdim=True).clamp(min=1e-8)
+        features = features.cpu()
+    packed = (features, len(positive), len(scene), prompts)
+    _CLIP_TEXT_CACHE[key] = packed
+    return packed
+
+
+def _clip_scores(image: Image.Image, entry: dict):
+    model, processor = _load_clip()
+    text_features, positive_count, scene_count, prompts = _clip_text_features(entry)
+    with _CLIP_INFER_LOCK, torch.inference_mode():
+        encoded_image = processor(images=image, return_tensors="pt")
+        image_features = model.get_image_features(**encoded_image)
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True).clamp(min=1e-8)
+        similarities = (image_features.cpu() @ text_features.T)[0].tolist()
+
+    positive_scores = similarities[:positive_count]
+    scene_scores = similarities[positive_count:positive_count + scene_count]
+    negative_scores = similarities[positive_count + scene_count:]
+    identity_score = max(positive_scores)
+    scene_score = max(scene_scores)
+    negative_score = max(negative_scores)
+    negative_index = negative_scores.index(negative_score)
+    winning_negative = prompts[positive_count + scene_count + negative_index]
+    semantic_score = max(identity_score, scene_score * 0.97)
+    margin = semantic_score - negative_score
+    return {
+        "clip_identity_score": round(identity_score, 5),
+        "clip_scene_score": round(scene_score, 5),
+        "clip_negative_score": round(negative_score, 5),
+        "clip_margin": round(margin, 5),
+        "clip_winning_negative": winning_negative,
+    }
+
+
+_base_fetch_and_validate_before_clip = fetch_and_validate
+
+
+def fetch_and_validate(candidate: dict, entry: dict, meta_score: float, relaxed: bool, slot: int):
+    result = _base_fetch_and_validate_before_clip(candidate, entry, meta_score, relaxed, slot)
+    if result is None:
+        return None
+    path = Path(result["temp_path"])
+    try:
+        image = Image.open(path).convert("RGB")
+        scores = _clip_scores(image, entry)
+        identity = scores["clip_identity_score"]
+        scene = scores["clip_scene_score"]
+        negative = scores["clip_negative_score"]
+        margin = scores["clip_margin"]
+
+        minimum_identity = 0.205 if not relaxed else 0.190
+        minimum_scene = 0.205 if not relaxed else 0.190
+        minimum_margin = 0.006 if not relaxed else -0.004
+        semantically_valid = (
+            identity >= minimum_identity
+            and scene >= minimum_scene
+            and margin >= minimum_margin
+        )
+        if not semantically_valid:
+            print(
+                f'CLIP reject {entry["priority"]:03d} | identity={identity:.3f} '
+                f'scene={scene:.3f} negative={negative:.3f} margin={margin:.3f} | '
+                f'{scores["clip_winning_negative"][:90]}',
+                flush=True,
+            )
+            path.unlink(missing_ok=True)
+            return None
+
+        result.update(scores)
+        result["image_score"] = round(
+            float(result["image_score"])
+            + identity * 24.0
+            + scene * 18.0
+            + margin * 180.0,
+            3,
+        )
+        return result
+    except Exception as exc:
+        print(f'CLIP validation error {entry["priority"]:03d}: {exc}', flush=True)
+        path.unlink(missing_ok=True)
+        return None
