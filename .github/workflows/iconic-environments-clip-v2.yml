@@ -14,6 +14,7 @@ on:
       - ".github/workflows/iconic-environments-clip-v2.yml"
   workflow_dispatch:
 
+# Forced rerun after correcting CLIP pooled feature projection.
 concurrency:
   group: iconic-environments-clip-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
