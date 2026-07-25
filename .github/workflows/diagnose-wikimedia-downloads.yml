@@ -1,0 +1,55 @@
+name: Diagnose Wikimedia downloads
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/diagnose-wikimedia-downloads.yml
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests Pillow
+      - name: Test API, thumb and original URLs
+        run: |
+          python - <<'PY' > wikimedia-download-diagnostic.txt 2>&1
+          import io, requests
+          from PIL import Image
+          API='https://commons.wikimedia.org/w/api.php'
+          H={'User-Agent':'WalidVisualDatasetHarvester/3.0 (https://github.com/walidgdg1-ai/gradientslider)','Referer':'https://commons.wikimedia.org/','Accept':'image/avif,image/webp,image/png,image/jpeg,*/*'}
+          p={'action':'query','format':'json','formatversion':2,'generator':'search','gsrsearch':'superyacht filetype:bitmap','gsrnamespace':6,'gsrlimit':10,'prop':'imageinfo','iiprop':'url|size|mime|extmetadata','iiurlwidth':1200}
+          r=requests.get(API,params=p,headers=H,timeout=45)
+          print('API',r.status_code,len(r.content),r.headers.get('content-type'))
+          r.raise_for_status()
+          for page in r.json().get('query',{}).get('pages',[]):
+              info=page['imageinfo'][0]
+              print('\nTITLE',page['title'])
+              for key in ('thumburl','url'):
+                  u=info.get(key)
+                  if not u: continue
+                  try:
+                      rr=requests.get(u,headers=H,timeout=45)
+                      print(key,'status',rr.status_code,'bytes',len(rr.content),'type',rr.headers.get('content-type'),'retry',rr.headers.get('retry-after'),'url',u)
+                      if rr.ok:
+                          im=Image.open(io.BytesIO(rr.content)); print('decoded',im.size,im.mode,im.format)
+                  except Exception as e:
+                      print(key,'ERROR',type(e).__name__,repr(e))
+          PY
+          cat wikimedia-download-diagnostic.txt
+      - name: Commit diagnostic
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wikimedia-download-diagnostic.txt
+          git commit -m "Record Wikimedia download diagnostics"
+          git push origin HEAD:main
