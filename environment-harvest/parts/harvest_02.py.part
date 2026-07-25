@@ -1,0 +1,176 @@
+        return len(ratios), max(ratios, default=0.0), sum(ratios)
+    except Exception:
+        return 0, 0.0, 0.0
+
+
+def image_metrics(image: Image.Image):
+    preview = image.copy()
+    preview.thumbnail((1100, 1100), Image.Resampling.LANCZOS)
+    gray = cv2.cvtColor(np.asarray(preview), cv2.COLOR_RGB2GRAY)
+    sharpness = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+    entropy = float(preview.convert("L").entropy())
+    return sharpness, entropy
+
+
+def fetch_and_validate(candidate: dict, entry: dict, meta_score: float, relaxed: bool, slot: int):
+    image_url = candidate.get("image", "")
+    page_url = candidate.get("page", "")
+    try:
+        headers = {
+            "User-Agent": UA,
+            "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        }
+        if page_url.startswith("http"):
+            headers["Referer"] = page_url
+        response = requests.get(
+            image_url,
+            headers=headers,
+            timeout=REQUEST_TIMEOUT,
+            allow_redirects=True,
+            stream=True,
+        )
+        if response.status_code != 200:
+            return None
+        content = response.content
+        if len(content) < (18_000 if relaxed else 36_000) or len(content) > 24_000_000:
+            return None
+        content_type = response.headers.get("content-type", "").lower()
+        if "image" not in content_type and not re.search(r"\.(jpe?g|png|webp|gif)(\?|$)", response.url, re.I):
+            return None
+
+        image = Image.open(io.BytesIO(content))
+        image.seek(0)
+        image = ImageOps.exif_transpose(image).convert("RGB")
+        original_width, original_height = image.size
+        ratio = original_width / max(original_height, 1)
+        min_width = 640 if relaxed else 960
+        min_height = 360 if relaxed else 520
+        if original_width < min_width or original_height < min_height:
+            return None
+        if ratio < 1.12 or ratio > 2.85:
+            return None
+
+        face_count, largest_face_ratio, total_face_ratio = detect_faces(image)
+        strict_face_limit = 0.16 if entry["category"] in {"western_animation", "anime", "video_game"} else 0.125
+        if largest_face_ratio > (strict_face_limit + (0.055 if relaxed else 0.0)):
+            return None
+        if total_face_ratio > (0.27 if relaxed else 0.21):
+            return None
+
+        sharpness, entropy = image_metrics(image)
+        if entropy < (2.65 if relaxed else 3.0):
+            return None
+        if sharpness < (22.0 if relaxed else 34.0):
+            return None
+
+        upscaled = False
+        if original_width < 1280:
+            scale = 1280 / original_width
+            target = (1280, max(720, round(original_height * scale)))
+            pixel_hint = norm(entry.get("hint", ""))
+            resample = Image.Resampling.NEAREST if any(
+                token in pixel_hint for token in ("nes", "game boy", "pixel", "playstation polygon", "roblox studs")
+            ) else Image.Resampling.LANCZOS
+            image = image.resize(target, resample)
+            upscaled = True
+        if max(image.size) > MAX_SIDE:
+            scale = MAX_SIDE / max(image.size)
+            image = image.resize(
+                (round(image.width * scale), round(image.height * scale)),
+                Image.Resampling.LANCZOS,
+            )
+
+        buffer = io.BytesIO()
+        image.save(buffer, "JPEG", quality=93, optimize=True, progressive=True, subsampling=0)
+        jpeg = buffer.getvalue()
+        sha256 = hashlib.sha256(jpeg).hexdigest()
+        phash = imagehash.phash(image)
+
+        megapixels = image.width * image.height / 1_000_000
+        aspect_bonus = max(0.0, 2.0 - abs((image.width / image.height) - (16 / 9)))
+        image_score = (
+            meta_score
+            + min(5.0, math.log2(max(megapixels, 0.5)) + 2.5)
+            + min(3.0, math.log10(max(sharpness, 1.0)))
+            + aspect_bonus
+            - largest_face_ratio * 20.0
+            - total_face_ratio * 7.0
+        )
+
+        item_dir = CANDIDATE_ROOT / entry["id"]
+        item_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = item_dir / f"candidate-{slot:02d}.jpg"
+        temp_path.write_bytes(jpeg)
+        return {
+            "temp_path": str(temp_path),
+            "final_direct_image_url": response.url,
+            "source_page_url": page_url,
+            "source_domain": domain(page_url or response.url),
+            "title": candidate.get("title", ""),
+            "provider": candidate.get("provider", ""),
+            "search_query": candidate.get("query", ""),
+            "metadata_score": round(meta_score, 3),
+            "image_score": round(image_score, 3),
+            "width": image.width,
+            "height": image.height,
+            "original_width": original_width,
+            "original_height": original_height,
+            "upscaled": upscaled,
+            "face_count": face_count,
+            "largest_face_ratio": round(largest_face_ratio, 5),
+            "total_face_ratio": round(total_face_ratio, 5),
+            "sharpness": round(sharpness, 2),
+            "entropy": round(entropy, 3),
+            "sha256": sha256,
+            "perceptual_hash": str(phash),
+        }
+    except Exception:
+        return None
+
+
+def query_plan(entry: dict, relaxed: bool):
+    templates = list(CATEGORY_QUERIES[entry["category"]])
+    if relaxed:
+        templates.extend([
+            '"{work}" "{location}" screenshot',
+            '"{work}" {hint} scene',
+            '"{location}" "{work}"',
+        ])
+    queries = []
+    for template in templates:
+        query = template.format(
+            work=entry["work"], location=entry["location"], hint=entry.get("hint", "")
+        ).strip()
+        if query not in queries:
+            queries.append(query)
+    return queries
+
+
+def harvest_entry(entry: dict, relaxed: bool = False):
+    if global_budget_exhausted():
+        return {"entry": entry, "candidates": [], "reason": "global time budget exhausted"}
+    entry_start = time.monotonic()
+    valid = []
+    attempted_urls = set()
+    examined = 0
+
+    for query in query_plan(entry, relaxed):
+        if global_budget_exhausted() or time.monotonic() - entry_start > ENTRY_BUDGET_SECONDS:
+            break
+        time.sleep(random.uniform(0.10, 0.45))
+        for meta_score, candidate in search_candidates(query, entry):
+            if global_budget_exhausted() or time.monotonic() - entry_start > ENTRY_BUDGET_SECONDS:
+                break
+            image_url = candidate.get("image", "")
+            key = image_url.split("?")[0]
+            if key in attempted_urls:
+                continue
+            attempted_urls.add(key)
+            examined += 1
+            if examined > (38 if relaxed else 28):
+                break
+            result = fetch_and_validate(candidate, entry, meta_score, relaxed, len(valid) + 1)
+            if result is None:
+                continue
+            valid.append(result)
+            valid.sort(key=lambda row: -row["image_score"])
