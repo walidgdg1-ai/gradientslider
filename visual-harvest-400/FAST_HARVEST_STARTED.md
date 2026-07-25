@@ -1,2 +1,2 @@
-# Fast harvest started
-Polite sequential GitHub Actions collection is active.
+# Rate-aware harvest started
+Wikimedia Retry-After handling is active.
