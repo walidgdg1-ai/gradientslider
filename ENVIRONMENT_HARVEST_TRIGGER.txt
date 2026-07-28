@@ -1,0 +1,3 @@
+Restart requested after NSFW/source-safety patch.
+Requested: 2026-07-28 Europe/Brussels.
+Target: regenerate and verify all 300 iconic environment images.
