@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Shopify__theme_bash",
+      "mcp__Shopify__theme_screenshot",
+      "mcp__Shopify__theme_commit",
+      "mcp__Shopify__graphql_query",
+      "mcp__Shopify__graphql_schema",
+      "mcp__Shopify__run-analytics-query",
+      "mcp__Shopify__use_skill",
+      "mcp__Shopify__get-shop-info"
+    ]
+  }
+}
